@@ -1,0 +1,9 @@
+# This file exists to track the models/ directory in git.
+# Actual model weight files (.pt, .onnx, .pth) are gitignored.
+# Run the following to download all required models:
+#
+#   python utils/download_models.py --minimum
+#
+# Or to download everything (including enhancers):
+#
+#   python utils/download_models.py --all

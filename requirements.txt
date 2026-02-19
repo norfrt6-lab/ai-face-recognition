@@ -1,0 +1,77 @@
+# ============================================================
+# AI Face Recognition & Face Swap - Requirements
+# Python 3.10+
+# ============================================================
+# GPU users  : pip install -r requirements.txt
+# CPU-only   : pip install -r requirements.txt --extra-index-url ""
+#              then manually run:
+#              pip install onnxruntime>=1.18.0
+#              (skip onnxruntime-gpu)
+#
+# The setup scripts (scripts/setup.sh / setup.bat) handle this
+# automatically — they detect CUDA and install the correct
+# onnxruntime variant for you.
+# ============================================================
+
+# ------ Core AI / CV ----------------------------------------
+ultralytics>=8.2.0          # YOLOv8 face detection
+insightface>=0.7.3          # Face analysis, ArcFace embeddings
+
+# ------ ONNX Runtime (choose ONE) ---------------------------
+# CPU (default — works everywhere):
+onnxruntime>=1.18.0
+
+# GPU (CUDA 12.x) — comment out the CPU line above and uncomment below:
+# onnxruntime-gpu>=1.18.0
+
+# ------ Image / Video Processing ----------------------------
+opencv-python>=4.9.0.80     # Image & video processing
+numpy>=1.26.0               # Numerical computing
+Pillow>=10.3.0              # Image I/O
+scipy>=1.13.0               # Poisson blending, spatial ops
+
+# ------ Face Enhancement ------------------------------------
+gfpgan>=1.3.8               # GFPGAN face restoration
+basicsr>=1.4.2              # Required by GFPGAN
+facexlib>=0.3.0             # Face parsing for GFPGAN
+
+# ------ Deep Learning Framework -----------------------------
+# PyTorch: install the correct variant for your hardware FIRST,
+# before running this file, to avoid pip pulling the wrong wheels.
+#
+# GPU (CUDA 12.1):
+#   pip install torch==2.2.0+cu121 torchvision==0.17.0+cu121 \
+#       --index-url https://download.pytorch.org/whl/cu121
+#
+# CPU only:
+#   pip install torch==2.2.0+cpu torchvision==0.17.0+cpu \
+#       --index-url https://download.pytorch.org/whl/cpu
+#
+# The lines below are omitted intentionally so that the torch
+# variant you installed manually is not overwritten by pip.
+# torch>=2.2.0              # installed separately (see above)
+# torchvision>=0.17.0       # installed separately (see above)
+
+# ------ Backend API -----------------------------------------
+fastapi>=0.111.0            # REST API framework
+uvicorn[standard]>=0.29.0   # ASGI server
+python-multipart>=0.0.9     # File upload support
+pydantic>=2.7.0             # Data validation & settings
+pydantic-settings>=2.2.0    # Environment-driven config
+
+# ------ Utilities -------------------------------------------
+tqdm>=4.66.0                # Progress bars
+loguru>=0.7.2               # Structured logging
+PyYAML>=6.0.1               # YAML config parsing
+python-dotenv>=1.0.1        # .env file support
+requests>=2.31.0            # HTTP client (model downloads)
+aiofiles>=23.2.1            # Async file I/O for FastAPI
+
+# ------ Frontend UI -----------------------------------------
+streamlit>=1.35.0           # Web UI
+streamlit-webrtc>=0.47.6    # Webcam/live stream support
+
+# ------ Image Quality ---------------------------------------
+scikit-image>=0.23.0        # SSIM, image metrics
+imageio>=2.34.0             # GIF / multi-frame output
+imageio[ffmpeg]             # Video read/write via ffmpeg

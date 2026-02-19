@@ -1,0 +1,221 @@
+# ============================================================
+# AI Face Recognition & Face Swap - Docker Compose
+# ============================================================
+# Services:
+#   - api     : FastAPI backend  (port 8000)
+#   - ui      : Streamlit frontend (port 8501)
+#
+# Usage:
+#   CPU only:   docker-compose up --build
+#   GPU (CUDA): docker-compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+# ============================================================
+
+# ── Shared environment variables ────────────────────────────
+x-common-env: &common-env
+  APP_ENV: ${APP_ENV:-development}
+  DEBUG: ${DEBUG:-false}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  MODELS_DIR: /app/models
+  UPLOAD_DIR: /app/uploads
+  OUTPUT_DIR: /app/output
+
+# ── Shared volume mounts ─────────────────────────────────────
+x-common-volumes: &common-volumes
+  - models_data:/app/models # Shared model weights (large, persisted)
+  - uploads_data:/app/uploads # Uploaded files
+  - output_data:/app/output # Processed results
+  - logs_data:/app/logs # Application logs
+
+services:
+  # ── FastAPI Backend ────────────────────────────────────────
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: api
+      args:
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+        VERSION: ${APP_VERSION:-1.0.0}
+    image: ai-face-recognition-api:${APP_VERSION:-latest}
+    container_name: ai_face_api
+    restart: unless-stopped
+
+    environment:
+      <<: *common-env
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      API_WORKERS: ${API_WORKERS:-1}
+      API_RELOAD: ${API_RELOAD:-false}
+      API_PREFIX: /api/v1
+      CORS_ORIGINS: '["http://localhost:8501","http://ui:8501"]'
+      # Inference device: cpu | cuda
+      EXECUTION_PROVIDER: ${EXECUTION_PROVIDER:-cpu}
+      DEVICE_ID: ${DEVICE_ID:-0}
+      # Model paths (inside container)
+      YOLO_MODEL_PATH: /app/models/yolov8n-face.pt
+      INSIGHTFACE_MODEL_DIR: /app/models
+      INSWAPPER_MODEL_PATH: /app/models/inswapper_128.onnx
+      GFPGAN_MODEL_PATH: /app/models/GFPGANv1.4.pth
+      CODEFORMER_MODEL_PATH: /app/models/codeformer.pth
+      # Storage
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-50}
+      # Ethics
+      ETHICS_REQUIRE_CONSENT: ${ETHICS_REQUIRE_CONSENT:-true}
+      ETHICS_WATERMARK_OUTPUT: ${ETHICS_WATERMARK_OUTPUT:-true}
+      # Security
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      API_KEY_ENABLED: ${API_KEY_ENABLED:-false}
+      API_KEY: ${API_KEY:-}
+
+    ports:
+      - "${API_HOST_PORT:-8000}:8000"
+
+    volumes: *common-volumes
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s # Allow time for models to load
+
+    networks:
+      - ai_face_net
+
+    # Limit memory usage for CPU mode (increase for GPU)
+    deploy:
+      resources:
+        limits:
+          memory: ${API_MEMORY_LIMIT:-4g}
+        reservations:
+          memory: ${API_MEMORY_RESERVE:-1g}
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ── Streamlit Frontend ──────────────────────────────────────
+  ui:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: ui
+      args:
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+        VERSION: ${APP_VERSION:-1.0.0}
+    image: ai-face-recognition-ui:${APP_VERSION:-latest}
+    container_name: ai_face_ui
+    restart: unless-stopped
+
+    environment:
+      <<: *common-env
+      UI_HOST: 0.0.0.0
+      UI_PORT: 8501
+      # Point UI → API (use service name for Docker DNS resolution)
+      UI_API_BASE_URL: http://api:8000
+
+    ports:
+      - "${UI_HOST_PORT:-8501}:8501"
+
+    volumes:
+      - output_data:/app/output # UI needs to display output results
+
+    depends_on:
+      api:
+        condition: service_healthy
+
+    networks:
+      - ai_face_net
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          memory: ${UI_MEMORY_LIMIT:-1g}
+        reservations:
+          memory: ${UI_MEMORY_RESERVE:-256m}
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Model Downloader (one-shot init container) ───────────────
+  model-downloader:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: api # Reuse the API image (has all deps)
+    image: ai-face-recognition-api:${APP_VERSION:-latest}
+    container_name: ai_face_model_downloader
+    restart: "no" # Run once and exit
+
+    command: >
+      python utils/download_models.py
+        ${DOWNLOAD_ALL_MODELS:+--all}
+        ${DOWNLOAD_FORCE:+--force}
+
+    environment:
+      <<: *common-env
+      MODELS_DIR: /app/models
+
+    volumes:
+      - models_data:/app/models
+
+    networks:
+      - ai_face_net
+
+    profiles:
+      - setup # Only run with: docker-compose --profile setup up model-downloader
+
+# ── Named Volumes ─────────────────────────────────────────────
+volumes:
+  models_data:
+    name: ai_face_models
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${MODELS_HOST_DIR:-./models}
+
+  uploads_data:
+    name: ai_face_uploads
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${UPLOADS_HOST_DIR:-./uploads}
+
+  output_data:
+    name: ai_face_output
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${OUTPUT_HOST_DIR:-./output}
+
+  logs_data:
+    name: ai_face_logs
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${LOGS_HOST_DIR:-./logs}
+
+# ── Networks ──────────────────────────────────────────────────
+networks:
+  ai_face_net:
+    name: ai_face_network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

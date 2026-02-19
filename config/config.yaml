@@ -1,0 +1,129 @@
+# ============================================================
+# AI Face Recognition & Face Swap - Default Configuration
+# ============================================================
+# These values are defaults and can be overridden via .env
+# or environment variables.
+
+app:
+  name: "AI Face Recognition & Swap"
+  version: "1.0.0"
+  debug: false
+  log_level: "INFO" # DEBUG | INFO | WARNING | ERROR
+  log_file: "logs/app.log"
+
+# ------ Paths ------------------------------------------------
+paths:
+  models_dir: "models"
+  output_dir: "output"
+  upload_dir: "uploads"
+  cache_dir: "cache"
+  temp_dir: "tmp"
+
+# ------ Face Detection (YOLOv8) ------------------------------
+detector:
+  model: "yolov8n-face.pt" # nano=fastest, s/m/l/x=more accurate
+  confidence_threshold: 0.5 # Minimum detection confidence (0.0 - 1.0)
+  iou_threshold: 0.45 # NMS IoU threshold
+  max_faces: 20 # Maximum faces to detect per frame
+  input_size: 640 # Model input resolution (pixels)
+  device: "cpu" # cpu | cuda | cuda:0 | mps
+  half_precision: false # FP16 inference (GPU only)
+
+# ------ Face Analysis / Recognition (InsightFace) ------------
+recognizer:
+  model_pack: "buffalo_l" # buffalo_l | buffalo_m | buffalo_s
+  embedding_dim: 512 # ArcFace embedding dimensions
+  similarity_threshold: 0.45 # Cosine similarity threshold for match
+  detection_size: [640, 640] # InsightFace internal detection size
+  ctx_id: 0 # GPU device ID (-1 for CPU)
+  det_score: 0.5 # InsightFace detection score threshold
+  database_path: "cache/face_db.pkl" # Persisted face identity store
+
+# ------ Face Swap (inswapper_128) ----------------------------
+swapper:
+  model: "inswapper_128.onnx"
+  input_size: 128 # Model native resolution
+  execution_provider: "auto" # auto | CUDAExecutionProvider | CPUExecutionProvider
+  blending_mode: "poisson" # poisson | alpha | seamless_clone
+  blend_alpha: 0.95 # Alpha blend weight (0.0 - 1.0)
+  face_mask_blur: 20 # Blur radius for face mask edges (pixels)
+  face_mask_padding: # Padding around detected face (top/right/bottom/left %)
+    top: 0.10
+    right: 0.05
+    bottom: 0.05
+    left: 0.05
+
+# ------ Face Enhancement (GFPGAN / CodeFormer) ---------------
+enhancer:
+  enabled: true
+  backend: "gfpgan" # gfpgan | codeformer | none
+  gfpgan:
+    model: "GFPGANv1.4.pth"
+    upscale: 2 # Output upscale factor (1 | 2 | 4)
+    arch: "clean" # clean | RestoreFormer
+    channel_multiplier: 2
+    bg_upsampler: null # null | realesrgan
+  codeformer:
+    model: "codeformer.pth"
+    fidelity_weight: 0.7 # 0.0 = quality focus, 1.0 = identity focus
+    upscale: 2
+    bg_enhance: false
+  only_center_face: false # Enhance only the largest/center face
+  paste_back: true # Paste enhanced face back into original frame
+
+# ------ Pipeline ---------------------------------------------
+pipeline:
+  mode: "image" # image | video | webcam
+  batch_size: 1 # Frames processed simultaneously
+  skip_frames: 0 # Skip N frames between processing (video)
+  watermark: true # Embed AI-generated watermark in output
+  watermark_text: "AI Generated" # Watermark overlay text
+  save_intermediate: false # Save intermediate step outputs for debugging
+  output_format: "png" # png | jpg | webp (image)
+  output_quality: 95 # JPEG/WebP quality (1-100)
+  video_output_format: "mp4"
+  video_codec: "libx264"
+  video_fps: null # null = preserve source FPS
+
+# ------ Video Processing -------------------------------------
+video:
+  max_resolution: [1920, 1080] # Cap video resolution (width x height)
+  preserve_audio: true # Keep original audio track
+  temp_frames_dir: "tmp/frames"
+  use_multithreading: true
+  num_workers: 4
+
+# ------ API Server -------------------------------------------
+api:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 1 # Uvicorn workers (1 recommended for GPU)
+  reload: false
+  cors_origins:
+    - "http://localhost:8501" # Streamlit UI
+    - "http://127.0.0.1:8501"
+  max_upload_size_mb: 50 # Max file upload size in megabytes
+  request_timeout_sec: 120 # Request processing timeout
+
+# ------ Streamlit UI -----------------------------------------
+ui:
+  host: "0.0.0.0"
+  port: 8501
+  api_base_url: "http://localhost:8000"
+  theme: "dark" # dark | light
+  max_preview_size: [800, 600] # Max displayed image size (w x h)
+
+# ------ Ethics & Safety --------------------------------------
+ethics:
+  consent_mode: true # Require consent flag on all swap requests
+  watermark_output: true # Always watermark swapped outputs
+  log_all_requests: true # Log metadata for every swap operation
+  block_celebrity_detection: false # Future: block known public figures
+
+# ------ Logging ----------------------------------------------
+logging:
+  level: "INFO"
+  format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+  rotation: "10 MB"
+  retention: "7 days"
+  compression: "zip"

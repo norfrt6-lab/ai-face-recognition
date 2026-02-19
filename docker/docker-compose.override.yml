@@ -1,0 +1,30 @@
+# ============================================================
+# AI Face Recognition & Face Swap
+# docker-compose.override.yml — Local development overrides
+# ============================================================
+# This file is auto-loaded by Docker Compose alongside
+# docker-compose.yml. It provides development-friendly defaults:
+#   - Hot-reload enabled for API
+#   - Debug log level
+#   - Source code volume mounts for live editing
+#
+# Do NOT commit environment-specific changes to this file.
+# ============================================================
+
+services:
+  api:
+    environment:
+      API_RELOAD: "true"
+      LOG_LEVEL: DEBUG
+      APP_ENV: development
+    volumes:
+      - ../api:/app/api
+      - ../core:/app/core
+      - ../utils:/app/utils
+      - ../config:/app/config
+
+  ui:
+    environment:
+      LOG_LEVEL: DEBUG
+    volumes:
+      - ../ui:/app/ui
