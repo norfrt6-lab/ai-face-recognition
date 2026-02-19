@@ -350,6 +350,7 @@ async def swap_faces(
     watermarked = False
     if watermark:
         try:
+            output_image = output_image.copy()
             font   = cv2.FONT_HERSHEY_SIMPLEX
             h, w   = output_image.shape[:2]
             scale  = max(0.4, min(w, h) / 800.0)

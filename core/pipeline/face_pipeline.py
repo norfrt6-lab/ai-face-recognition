@@ -404,7 +404,8 @@ class FacePipeline:
         try:
             source_embedding = self.recognizer.get_embedding(
                 source_image,
-                face_box=source_face,
+                bbox=(int(source_face.x1), int(source_face.y1),
+                      int(source_face.x2), int(source_face.y2)),
             )
         except Exception as exc:
             timing.embed_source_ms = _timer() - t0

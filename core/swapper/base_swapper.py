@@ -114,6 +114,12 @@ class SwapRequest:
     enhance_after_swap: bool = False
     metadata:           dict = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.blend_alpha <= 1.0:
+            raise ValueError(
+                f"blend_alpha must be in [0.0, 1.0], got {self.blend_alpha}"
+            )
+
     # ------------------------------------------------------------------
     # Convenience helpers
     # ------------------------------------------------------------------
@@ -664,7 +670,7 @@ class BaseSwapper(ABC):
                 target_face=face,
                 source_face_index=0,
                 target_face_index=face.face_index,
-                blend_mode=blend_mode   or self.blend_mode,
+                blend_mode=blend_mode if blend_mode is not None else self.blend_mode,
                 blend_alpha=blend_alpha if blend_alpha is not None else self.blend_alpha,
                 mask_feather=mask_feather if mask_feather is not None else self.mask_feather,
             )

@@ -274,8 +274,9 @@ class GFPGANEnhancer(BaseEnhancer):
             output_img = unpad_image(output_img, scaled_padding)
 
         # Update stats
-        self._total_calls     += 1
-        self._total_inference += inference_time
+        with self._stats_lock:
+            self._total_calls     += 1
+            self._total_inference += inference_time
         total_time = self._timer() - t0
 
         logger.debug(

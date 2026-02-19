@@ -157,7 +157,7 @@ class YOLOFaceDetector(BaseDetector):
             if (
                 not model_path.exists()
                 and "/" not in self.model_path
-                and "\\" not in self.model_path
+                and os.sep not in self.model_path
             ):
                 # Ultralytics Hub name — YOLO will auto-download
                 logger.info(
@@ -668,7 +668,7 @@ class YOLOFaceDetector(BaseDetector):
         if self._model is not None:
             try:
                 del self._model
-            except Exception:
+            except (AttributeError, TypeError):
                 pass
 
             if "cuda" in self.device:
@@ -676,7 +676,7 @@ class YOLOFaceDetector(BaseDetector):
                     import torch
                     torch.cuda.empty_cache()
                     logger.debug("CUDA cache cleared.")
-                except Exception:
+                except ImportError:
                     pass
 
         super().release()

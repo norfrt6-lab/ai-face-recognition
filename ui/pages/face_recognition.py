@@ -318,6 +318,13 @@ def _render_recognize_section() -> None:
             type=["jpg", "jpeg", "png", "webp", "bmp"],
             key="recog_upload",
         )
+        
+        # Consent checkbox
+        consent = st.checkbox(
+            "✅ I confirm I have explicit consent from all individuals in this image.",
+            key="recog_consent",
+            value=True,
+        )
 
     with col_settings:
         st.markdown("**Settings**")
@@ -336,6 +343,10 @@ def _render_recognize_section() -> None:
     if uploaded is None:
         st.info("👆 Upload an image to get started.")
         return
+    
+    if not consent:
+        st.warning("⚠️ Please check the consent box to proceed with face recognition.")
+        return
 
     # ── Show original image ──────────────────────────────────────────
     image_bytes = uploaded.read()
@@ -347,10 +358,11 @@ def _render_recognize_section() -> None:
     run_col, _ = st.columns([1, 3])
     with run_col:
         run_btn = st.button(
-            "🔍 Run Recognition",
+            "🔍 Recognize",
             type="primary",
             use_container_width=True,
             key="recog_run_btn",
+            disabled=not uploaded or not consent,
         )
 
     if not run_btn and "recog_last_result" not in st.session_state:
