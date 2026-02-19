@@ -117,9 +117,9 @@ class FaceEmbedding:
         return float(np.linalg.norm(self.vector))
 
     @property
-    def is_normalised(self, tol: float = 1e-3) -> bool:
-        """True if the embedding vector has unit L2 norm (± tol)."""
-        return abs(self.norm - 1.0) < tol
+    def is_normalised(self) -> bool:
+        """True if the embedding vector has unit L2 norm (± 1e-3)."""
+        return abs(self.norm - 1.0) < 1e-3
 
     def normalise(self) -> "FaceEmbedding":
         """

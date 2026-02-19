@@ -322,8 +322,9 @@ class CodeFormerEnhancer(BaseEnhancer):
             )
 
         # ── Statistics ───────────────────────────────────────────────
-        self._total_calls     += 1
-        self._total_inference += inference_time
+        with self._stats_lock:
+            self._total_calls     += 1
+            self._total_inference += inference_time
         num_enhanced = len(face_crops)
         total_time   = self._timer() - t0
 

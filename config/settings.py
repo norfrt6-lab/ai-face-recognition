@@ -264,7 +264,10 @@ class StorageSettings(BaseSettings):
     @classmethod
     def create_dirs(cls, v: str | Path) -> Path:
         path = Path(v)
-        path.mkdir(parents=True, exist_ok=True)
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise ValueError(f"Cannot create directory {path}: {exc}") from exc
         return path
 
 
@@ -320,7 +323,7 @@ class EthicsSettings(BaseSettings):
     )
     # NSFW detection gate (requires additional classifier model)
     enable_nsfw_filter: bool = Field(
-        default=False,
+        default=True,
         description="Run NSFW classifier on input before processing (requires extra model).",
     )
 

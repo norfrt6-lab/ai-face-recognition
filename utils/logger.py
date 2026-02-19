@@ -84,7 +84,7 @@ def setup_logger(
             format=_TEXT_FORMAT,
             colorize=colorize,
             backtrace=True,
-            diagnose=True,
+            diagnose=level in ("DEBUG", "TRACE"),
             enqueue=True,
         )
 

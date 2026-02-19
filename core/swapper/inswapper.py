@@ -20,6 +20,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -138,7 +139,8 @@ class InSwapper(BaseSwapper):
         self._output_name: Optional[str] = None   # swapped-face tensor name
         self._emap:        Optional[np.ndarray] = None  # (512, 512) identity matrix
 
-        # Inference statistics (cumulative)
+        # Inference statistics (cumulative, guarded by _stats_lock)
+        self._stats_lock               = threading.Lock()
         self._total_calls:     int   = 0
         self._total_inference: float = 0.0  # ms
 
@@ -353,8 +355,9 @@ class InSwapper(BaseSwapper):
         blend_time = self._timer() - t_blend
 
         # ── Stats ──────────────────────────────────────────────────
-        self._total_calls     += 1
-        self._total_inference += inference_time
+        with self._stats_lock:
+            self._total_calls     += 1
+            self._total_inference += inference_time
         total_time = self._timer() - t0
 
         logger.debug(
@@ -401,19 +404,22 @@ class InSwapper(BaseSwapper):
     @property
     def avg_inference_ms(self) -> float:
         """Average ONNX inference time per call in milliseconds."""
-        if self._total_calls == 0:
-            return 0.0
-        return self._total_inference / self._total_calls
+        with self._stats_lock:
+            if self._total_calls == 0:
+                return 0.0
+            return self._total_inference / self._total_calls
 
     @property
     def total_calls(self) -> int:
         """Total number of swap() calls since model was loaded."""
-        return self._total_calls
+        with self._stats_lock:
+            return self._total_calls
 
     def reset_stats(self) -> None:
         """Reset cumulative inference statistics."""
-        self._total_calls     = 0
-        self._total_inference = 0.0
+        with self._stats_lock:
+            self._total_calls     = 0
+            self._total_inference = 0.0
 
     # ------------------------------------------------------------------
     # Internal preprocessing / postprocessing
