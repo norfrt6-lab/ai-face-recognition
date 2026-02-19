@@ -82,9 +82,9 @@ _MODEL_REGISTRY: Dict[str, ModelSpec] = {
     "buffalo_l": ModelSpec(
         name="InsightFace buffalo_l",
         filename="buffalo_l.zip",
-        url="https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip",
+        url="https://huggingface.co/datasets/Gourieff/ReActor/resolve/main/models/buffalo_l.zip",
         mirrors=[
-            "https://huggingface.co/datasets/Gourieff/ReActor/resolve/main/models/buffalo_l.zip",
+            "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip",
         ],
         sha256=None,
         subdirectory=None,     # will be extracted to models/buffalo_l/
@@ -106,9 +106,7 @@ _MODEL_REGISTRY: Dict[str, ModelSpec] = {
         name="GFPGANv1.4 (face restoration)",
         filename="GFPGANv1.4.pth",
         url="https://github.com/TencentARC/GFPGAN/releases/download/v1.3.4/GFPGANv1.4.pth",
-        mirrors=[
-            "https://huggingface.co/datasets/Gourieff/ReActor/resolve/main/models/GFPGANv1.4.pth",
-        ],
+        mirrors=[],
         sha256=None,
     ),
     # ── CodeFormer.pth ────────────────────────────────────────────────────
@@ -116,9 +114,7 @@ _MODEL_REGISTRY: Dict[str, ModelSpec] = {
         name="CodeFormer (face restoration)",
         filename="codeformer.pth",
         url="https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/codeformer.pth",
-        mirrors=[
-            "https://huggingface.co/datasets/Gourieff/ReActor/resolve/main/models/codeformer.pth",
-        ],
+        mirrors=[],
         sha256=None,
     ),
     # ── detection_Resnet50_Final.pth  (RetinaFace — used by GFPGAN) ───────
