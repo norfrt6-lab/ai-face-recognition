@@ -184,7 +184,6 @@ class VideoPipeline:
         self.detector  = detector
         self.swapper   = swapper
         self.enhancer  = enhancer
-        self._tracker: Optional[IoUTracker] = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -257,14 +256,13 @@ class VideoPipeline:
                 f"(codec={config.output_codec!r}, size={out_w}x{out_h})"
             )
 
-        # Initialise face tracker for temporal consistency
+        # Initialise face tracker for temporal consistency (local to this run)
+        tracker: Optional[IoUTracker] = None
         if config.enable_tracking:
-            self._tracker = IoUTracker(
+            tracker = IoUTracker(
                 iou_threshold=config.tracking_iou,
                 max_age=config.tracking_max_age,
             )
-        else:
-            self._tracker = None
 
         t_start          = time.perf_counter()
         processed_frames = 0
@@ -296,7 +294,7 @@ class VideoPipeline:
                     continue
 
                 try:
-                    output_frame = self._process_frame(frame, config)
+                    output_frame = self._process_frame(frame, config, tracker)
                     processed_frames += 1
                 except Exception as exc:
                     logger.warning(
@@ -414,13 +412,12 @@ class VideoPipeline:
                 str(out_path), fourcc, src_fps, (out_w, out_h)
             )
 
+        tracker: Optional[IoUTracker] = None
         if config.enable_tracking:
-            self._tracker = IoUTracker(
+            tracker = IoUTracker(
                 iou_threshold=config.tracking_iou,
                 max_age=config.tracking_max_age,
             )
-        else:
-            self._tracker = None
 
         t_start          = time.perf_counter()
         processed_frames = 0
@@ -442,7 +439,7 @@ class VideoPipeline:
                     frame = cv2.resize(frame, (out_w, out_h))
 
                 try:
-                    output_frame = self._process_frame(frame, config)
+                    output_frame = self._process_frame(frame, config, tracker)
                     processed_frames += 1
                 except Exception as exc:
                     logger.debug(f"Webcam frame {frame_idx} error: {exc}")
@@ -498,15 +495,17 @@ class VideoPipeline:
 
     def _process_frame(
         self,
-        frame:  np.ndarray,
-        config: VideoProcessingConfig,
+        frame:   np.ndarray,
+        config:  VideoProcessingConfig,
+        tracker: Optional[IoUTracker] = None,
     ) -> np.ndarray:
         """
         Run detect → swap → (optional enhance) on a single BGR frame.
 
         Args:
-            frame:  Input BGR frame.
-            config: Pipeline configuration.
+            frame:   Input BGR frame.
+            config:  Pipeline configuration.
+            tracker: Optional IoU tracker for temporal consistency.
 
         Returns:
             Processed BGR frame (same shape as input).
@@ -514,13 +513,13 @@ class VideoPipeline:
         detection: DetectionResult = self.detector.detect(frame)
 
         if detection.is_empty:
-            if self._tracker is not None:
-                self._tracker.update([])  # age existing tracks
+            if tracker is not None:
+                tracker.update([])  # age existing tracks
             return frame   # no faces → return unmodified
 
         # Assign persistent track IDs across frames
-        if self._tracker is not None:
-            tracked = self._tracker.update(detection.faces)
+        if tracker is not None:
+            tracked = tracker.update(detection.faces)
             detection = DetectionResult(
                 faces=tracked,
                 image_width=detection.image_width,
