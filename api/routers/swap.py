@@ -25,14 +25,9 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import JSONResponse, Response
 
 from api.metrics import SWAP_FACE_COUNT
-from api.schemas.requests import (
-    BlendModeSchema,
-    EnhancerBackendSchema,
-)
+from api.schemas.requests import BlendModeSchema, EnhancerBackendSchema
 from api.schemas.requests import SwapRequest as SwapRequestSchema
-from api.schemas.requests import (
-    swap_form_dep,
-)
+from api.schemas.requests import swap_form_dep
 from api.schemas.responses import (
     BoundingBox,
     ErrorResponse,

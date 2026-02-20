@@ -9,24 +9,12 @@ from typing import List, Optional
 
 import cv2
 import numpy as np
-from fastapi import (
-    APIRouter,
-    Depends,
-    File,
-    Form,
-    HTTPException,
-    Request,
-    UploadFile,
-    status,
-)
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 
 from api.metrics import RECOGNITION_COUNT
 from api.schemas.requests import RecognizeRequest as RecognizeRequestSchema
 from api.schemas.requests import RegisterRequest as RegisterRequestSchema
-from api.schemas.requests import (
-    recognize_form_dep,
-    register_form_dep,
-)
+from api.schemas.requests import recognize_form_dep, register_form_dep
 from api.schemas.responses import (
     BoundingBox,
     ErrorResponse,

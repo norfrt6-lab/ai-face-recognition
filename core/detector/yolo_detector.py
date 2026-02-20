@@ -24,12 +24,7 @@ import cv2
 import numpy as np
 from loguru import logger
 
-from core.detector.base_detector import (
-    BaseDetector,
-    DetectionResult,
-    FaceBox,
-    face_box_from_xyxy,
-)
+from core.detector.base_detector import BaseDetector, DetectionResult, FaceBox, face_box_from_xyxy
 from utils.image_utils import normalise_channels
 
 

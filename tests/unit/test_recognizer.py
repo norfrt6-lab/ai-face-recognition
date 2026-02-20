@@ -35,11 +35,7 @@ from core.recognizer.base_recognizer import (
     cosine_similarity,
     cosine_similarity_matrix,
 )
-from core.recognizer.face_database import (
-    FaceDatabase,
-    FaceIdentity,
-    SearchResult,
-)
+from core.recognizer.face_database import FaceDatabase, FaceIdentity, SearchResult
 
 
 def _rand_vec(dim: int = 512, seed: int = 0) -> np.ndarray:
