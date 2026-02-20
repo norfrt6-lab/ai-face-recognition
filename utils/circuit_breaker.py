@@ -63,7 +63,12 @@ class CircuitBreaker:
             return self._effective_state()
 
     def check(self) -> None:
-        """Raise CircuitOpenError if the circuit is OPEN and not ready to probe."""
+        """Raise CircuitOpenError if the circuit is OPEN and not ready to probe.
+
+        When the recovery timeout has elapsed, transitions to HALF_OPEN and
+        allows exactly one probe call through. Subsequent callers while
+        HALF_OPEN are rejected until record_success() or record_failure().
+        """
         with self._lock:
             st = self._effective_state()
             if st == CircuitState.OPEN:
@@ -71,6 +76,9 @@ class CircuitBreaker:
                     time.monotonic() - (self._last_failure_time or 0)
                 )
                 raise CircuitOpenError(self.name, max(0.0, retry_after))
+            if st == CircuitState.HALF_OPEN:
+                # Transition to HALF_OPEN — allow this single probe
+                self._state = CircuitState.HALF_OPEN
 
     def record_success(self) -> None:
         with self._lock:
@@ -81,7 +89,7 @@ class CircuitBreaker:
         with self._lock:
             self._failure_count += 1
             self._last_failure_time = time.monotonic()
-            if self._failure_count >= self.failure_threshold:
+            if self._failure_count >= self.failure_threshold or self._state == CircuitState.HALF_OPEN:
                 self._state = CircuitState.OPEN
 
     def reset(self) -> None:
@@ -91,9 +99,14 @@ class CircuitBreaker:
             self._last_failure_time = None
 
     def _effective_state(self) -> CircuitState:
-        """Determine real state (transitions OPEN → HALF_OPEN after timeout)."""
+        """Determine real state (transitions OPEN → HALF_OPEN after timeout).
+
+        When the recovery timeout elapses, persists the HALF_OPEN state
+        so only one probe is allowed through.
+        """
         if self._state == CircuitState.OPEN and self._last_failure_time is not None:
             elapsed = time.monotonic() - self._last_failure_time
             if elapsed >= self.recovery_timeout:
+                self._state = CircuitState.HALF_OPEN
                 return CircuitState.HALF_OPEN
         return self._state

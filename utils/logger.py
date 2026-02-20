@@ -167,4 +167,4 @@ def setup_from_settings() -> None:
 # ------------------------------------------------------------------ #
 
 if not _configured:
-    setup_logger(level="DEBUG", colorize=True)
+    setup_logger(level="INFO", colorize=True)

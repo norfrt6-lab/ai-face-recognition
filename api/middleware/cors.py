@@ -150,6 +150,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # ip → deque of request timestamps (float, seconds since epoch)
         self._windows: Dict[str, Deque[float]] = defaultdict(deque)
+        self._last_cleanup: float = 0.0
+        self._cleanup_interval: float = 300.0  # evict stale IPs every 5 min
+        self._max_tracked_ips: int = 10_000
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         # Skip rate limiting for excluded paths
@@ -160,7 +163,26 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Resolve client IP
         client_ip = self._get_client_ip(request)
         now       = time.time()
-        window    = self._windows[client_ip]
+
+        # Periodic eviction of stale IP entries to bound memory
+        if now - self._last_cleanup > self._cleanup_interval:
+            self._last_cleanup = now
+            cutoff_evict = now - self.window_seconds
+            stale = [ip for ip, dq in self._windows.items() if not dq or dq[-1] <= cutoff_evict]
+            for ip in stale:
+                del self._windows[ip]
+
+        # Hard cap on tracked IPs to prevent memory exhaustion
+        if len(self._windows) >= self._max_tracked_ips and client_ip not in self._windows:
+            logger.warning(f"Rate limiter: max tracked IPs ({self._max_tracked_ips}) reached, rejecting new IP.")
+            return Response(
+                content='{"error":"rate_limit_exceeded","message":"Server under heavy load. Try again later."}',
+                status_code=429,
+                media_type="application/json",
+                headers={"Retry-After": "60"},
+            )
+
+        window = self._windows[client_ip]
 
         # Evict timestamps outside the current window
         cutoff = now - self.window_seconds
@@ -196,27 +218,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         """
         Extract the real client IP from the request.
 
-        Prefers ``X-Forwarded-For`` (set by reverse proxies / load
-        balancers) over the direct connection IP.
-
-        Args:
-            request: FastAPI/Starlette Request object.
-
-        Returns:
-            Client IP address string.
+        Uses the direct connection IP to prevent spoofing via
+        ``X-Forwarded-For``. Deploy behind a reverse proxy that sets
+        ``X-Real-IP`` or use Starlette's ``ProxyHeadersMiddleware``
+        with explicit trusted hosts for proxy-aware IP resolution.
         """
-        forwarded_for = request.headers.get("X-Forwarded-For")
-        if forwarded_for:
-            # X-Forwarded-For may be a comma-separated list; take the first
-            return forwarded_for.split(",")[0].strip()
-
-        real_ip = request.headers.get("X-Real-IP")
-        if real_ip:
-            return real_ip.strip()
-
         if request.client:
             return request.client.host
-
         return "unknown"
 
 
@@ -232,7 +240,8 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             return response
         finally:
             elapsed = time.perf_counter() - t_start
-            endpoint = request.url.path
+            route = request.scope.get("route")
+            endpoint = getattr(route, "path", request.url.path) if route else request.url.path
             method = request.method
             sc = str(response.status_code) if response else "500"
             REQUEST_LATENCY.labels(method=method, endpoint=endpoint).observe(elapsed)
@@ -242,8 +251,9 @@ class MetricsMiddleware(BaseHTTPMiddleware):
 def configure_middleware(app: FastAPI) -> None:
     """Attach all middleware to *app* in the correct order.
 
-    Starlette applies middleware in reverse registration order, so the
-    first-registered middleware is outermost.
+    Starlette applies middleware in **reverse** registration order, so
+    the **last** registered middleware is the outermost (runs first on
+    request). We register from innermost to outermost.
     """
     try:
         from config.settings import settings  # noqa: PLC0415
@@ -255,17 +265,10 @@ def configure_middleware(app: FastAPI) -> None:
         workers = 1
         api_keys = []
 
-    # 1. Request ID (outermost — always runs)
-    app.add_middleware(RequestIDMiddleware)
+    # 1. CORS (innermost — runs closest to the route handler)
+    configure_cors(app)
 
-    # 2. Prometheus metrics
-    app.add_middleware(MetricsMiddleware)
-
-    # 3. API key auth (no-op when api_keys is empty)
-    from api.middleware.auth import APIKeyMiddleware  # noqa: PLC0415
-    app.add_middleware(APIKeyMiddleware, api_keys=api_keys)
-
-    # 4. Rate limiter
+    # 2. Rate limiter
     if workers > 1:
         logger.warning(
             f"In-memory rate limiter is active with API_WORKERS={workers}. "
@@ -281,8 +284,15 @@ def configure_middleware(app: FastAPI) -> None:
         exclude_paths={"/api/v1/health", "/docs", "/openapi.json", "/redoc"},
     )
 
-    # 5. CORS (innermost — runs closest to the route handler)
-    configure_cors(app)
+    # 3. API key auth (no-op when api_keys is empty)
+    from api.middleware.auth import APIKeyMiddleware  # noqa: PLC0415
+    app.add_middleware(APIKeyMiddleware, api_keys=api_keys)
+
+    # 4. Prometheus metrics
+    app.add_middleware(MetricsMiddleware)
+
+    # 5. Request ID (outermost — always runs first)
+    app.add_middleware(RequestIDMiddleware)
 
     from api.metrics import METRICS_AVAILABLE  # noqa: PLC0415
     auth_status = "on" if api_keys else "off"

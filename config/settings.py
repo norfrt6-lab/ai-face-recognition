@@ -212,10 +212,10 @@ class APISettings(BaseSettings):
         description="Accepted API keys for X-API-Key header. Empty list disables auth.",
     )
 
-    # Upload constraints
+    # Upload constraints (derived from max_upload_size_mb)
     max_upload_bytes: int = Field(
-        default=10 * 1024 * 1024,
-        description="Maximum upload file size in bytes (default 10 MB).",
+        default=50 * 1024 * 1024,
+        description="Maximum upload file size in bytes (default 50 MB, matches max_upload_size_mb).",
     )
     max_image_dimension: int = Field(
         default=4096,

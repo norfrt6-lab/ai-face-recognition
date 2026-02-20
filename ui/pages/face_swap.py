@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import base64
+import html
 import io
 import time
 from typing import Optional
@@ -101,6 +102,7 @@ def _call_swap_api(
     enhancer_backend:  str,
     enhancer_fidelity: float,
     watermark:         bool,
+    consent:           bool = False,
 ) -> dict:
     """
     Call POST /api/v1/swap with return_base64=true.
@@ -110,9 +112,16 @@ def _call_swap_api(
     """
     url = f"{_get_api_url()}{SWAP_ENDPOINT}"
 
+    def _guess_mime(filename: str) -> str:
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+        return {
+            "jpg": "image/jpeg", "jpeg": "image/jpeg",
+            "png": "image/png", "webp": "image/webp", "bmp": "image/bmp",
+        }.get(ext, "image/jpeg")
+
     files = {
-        "source_file": (source_filename, source_bytes, "image/jpeg"),
-        "target_file": (target_filename, target_bytes, "image/jpeg"),
+        "source_file": (source_filename, source_bytes, _guess_mime(source_filename)),
+        "target_file": (target_filename, target_bytes, _guess_mime(target_filename)),
     }
     data = {
         "blend_mode":         blend_mode,
@@ -127,7 +136,7 @@ def _call_swap_api(
         "enhancer_fidelity":  str(enhancer_fidelity),
         "watermark":          str(watermark).lower(),
         "return_base64":      "true",
-        "consent":            "true",
+        "consent":            str(consent).lower(),
     }
 
     try:
@@ -338,9 +347,14 @@ def _render_sidebar() -> dict:
 
         st.subheader("⚠️ Ethics")
         st.warning(
-            "By clicking **Run Swap** you confirm that you have "
+            "You must confirm that you have "
             "**explicit consent** from all individuals depicted.\n\n"
             "Do NOT create non-consensual deepfakes."
+        )
+        consent = st.checkbox(
+            "I have explicit consent from all individuals depicted",
+            value=False,
+            key="swap_consent",
         )
 
     return {
@@ -355,6 +369,7 @@ def _render_sidebar() -> dict:
         "enhancer_backend":  enhancer_backend,
         "enhancer_fidelity": enhancer_fidelity,
         "watermark":         watermark,
+        "consent":           consent,
     }
 
 
@@ -409,7 +424,7 @@ def _display_image(
                 align-items: center;
                 justify-content: center;
             ">
-                {placeholder_text}
+                {html.escape(placeholder_text)}
             </div>
             """,
             unsafe_allow_html=True,
@@ -516,7 +531,7 @@ def main() -> None:
     run_col, clear_col = st.columns([3, 1])
 
     with run_col:
-        run_disabled = (source_bytes is None or target_bytes is None)
+        run_disabled = (source_bytes is None or target_bytes is None or not settings.get("consent", False))
         run_clicked  = st.button(
             "🔄 Run Face Swap",
             disabled=run_disabled,

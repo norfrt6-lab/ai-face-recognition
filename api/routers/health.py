@@ -16,6 +16,7 @@ import time
 from typing import Dict
 
 from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 from api.schemas.responses import (
     ComponentHealth,
@@ -116,13 +117,16 @@ async def health_check(request: Request) -> HealthResponse:
 
     logger.debug(f"Health check: overall={overall.value} uptime={uptime:.1f}s")
 
-    return HealthResponse(
+    response = HealthResponse(
         status=overall,
         version=version,
         environment=environment,
         uptime_seconds=uptime,
         components=components,
     )
+
+    status_code = 503 if overall == ComponentStatus.DOWN else 200
+    return JSONResponse(content=response.model_dump(mode="json"), status_code=status_code)
 
 
 def _check_component(

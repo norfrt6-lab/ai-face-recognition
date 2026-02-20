@@ -154,6 +154,7 @@ class CodeFormerEnhancer(BaseEnhancer):
             checkpoint = torch.load(
                 str(path),
                 map_location=torch.device(resolved_device),
+                weights_only=True,
             )
             # Checkpoint may be nested under 'params_ema' or 'params'
             state_dict = (
