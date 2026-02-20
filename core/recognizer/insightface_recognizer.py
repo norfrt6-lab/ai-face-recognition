@@ -737,8 +737,11 @@ class InsightFaceRecognizer(BaseRecognizer):
     @staticmethod
     def _ensure_bgr(image: np.ndarray) -> np.ndarray:
         if image.dtype != np.uint8:
-            image = np.clip(image * 255 if image.max() <= 1.0 else image,
-                            0, 255).astype(np.uint8)
+            # Use dtype to decide scaling: float images in [0,1] need *255
+            if np.issubdtype(image.dtype, np.floating):
+                image = np.clip(image * 255, 0, 255).astype(np.uint8)
+            else:
+                image = np.clip(image, 0, 255).astype(np.uint8)
         return normalise_channels(image)
 
     def _resolve_ctx_id(self) -> int:
