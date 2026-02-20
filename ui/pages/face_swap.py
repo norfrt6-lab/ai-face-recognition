@@ -589,7 +589,8 @@ def main() -> None:
         _render_result_info(result_info)
 
     with st.expander("💡 Tips for best results", expanded=False):
-        st.markdown("""
+        st.markdown(
+            """
             - **Source image**: Use a clear, front-facing photo with good lighting.
               A single face works best. Higher resolution = better embedding quality.
             - **Target image**: Can contain multiple faces. Use *Swap All Faces* to
@@ -603,7 +604,8 @@ def main() -> None:
               artifacts from the swapped face. Adds ~1–3s processing time.
             - **Models must be downloaded** before the API can process images.
               Run `python utils/download_models.py --minimum` to get started.
-            """)
+            """
+        )
 
 
 if __name__ == "__main__":
