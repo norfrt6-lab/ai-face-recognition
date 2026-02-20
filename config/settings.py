@@ -215,7 +215,7 @@ class APISettings(BaseSettings):
     # Upload constraints (derived from max_upload_size_mb)
     max_upload_bytes: int = Field(
         default=50 * 1024 * 1024,
-        description="Maximum upload file size in bytes (default 50 MB, matches max_upload_size_mb).",
+        description="Max upload size in bytes (default 50 MB, matches max_upload_size_mb).",
     )
     max_image_dimension: int = Field(
         default=4096,

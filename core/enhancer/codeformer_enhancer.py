@@ -338,7 +338,7 @@ class CodeFormerEnhancer(BaseEnhancer):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _preprocess_face(face_bgr: np.ndarray, device) -> "torch.Tensor":
+    def _preprocess_face(face_bgr: np.ndarray, device) -> "torch.Tensor":  # noqa: F821
         """
         Convert a BGR uint8 face crop to a (1, 3, 512, 512) float32
         tensor in [-1, 1] on *device*.

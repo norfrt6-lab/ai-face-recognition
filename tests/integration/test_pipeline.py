@@ -928,7 +928,10 @@ class TestVideoProcessingConfig:
 
     def test_progress_callback_stored(self):
         calls = []
-        cb = lambda cur, tot: calls.append((cur, tot))
+
+        def cb(cur, tot):
+            calls.append((cur, tot))
+
         cfg = VideoProcessingConfig(
             source_embedding=_make_embedding(),
             progress_callback=cb,

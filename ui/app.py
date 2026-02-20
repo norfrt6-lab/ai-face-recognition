@@ -508,7 +508,7 @@ def _page_recognition() -> None:
             for i, face in enumerate(faces):
                 with st.expander(
                     f"Face #{face.get('face_index', i)} — "
-                    f"{'✅ ' + face['match']['identity_name'] if face['match']['is_known'] else '❓ Unknown'}",
+                    f"{'✅ ' + face['match']['identity_name'] if face['match']['is_known'] else '❓ Unknown'}",  # noqa: E501
                     expanded=True,
                 ):
                     c1, c2 = st.columns(2)

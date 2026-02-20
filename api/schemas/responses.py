@@ -60,7 +60,9 @@ class DetectedFace(BaseModel):
     bbox: BoundingBox = Field(..., description="Bounding box in pixel coordinates.")
     landmarks: Optional[List[LandmarkPoint]] = Field(
         None,
-        description="5-point facial landmarks [left_eye, right_eye, nose, left_mouth, right_mouth].",
+        description=(
+            "5-point facial landmarks" " [left_eye, right_eye, nose, left_mouth, right_mouth]."
+        ),
     )
     attributes: Optional[FaceAttributeResponse] = Field(
         None, description="Predicted demographic attributes (if requested)."

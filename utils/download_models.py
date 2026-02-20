@@ -76,9 +76,9 @@ _MODEL_REGISTRY: Dict[str, ModelSpec] = {
     "inswapper_128": ModelSpec(
         name="inswapper_128 (face swap ONNX)",
         filename="inswapper_128.onnx",
-        url="https://huggingface.co/datasets/Gourieff/ReActor/resolve/main/models/inswapper_128.onnx",
+        url="https://huggingface.co/datasets/Gourieff/ReActor/resolve/main/models/inswapper_128.onnx",  # noqa: E501
         mirrors=[
-            "https://github.com/facefusion/facefusion-assets/releases/download/models/inswapper_128.onnx",
+            "https://github.com/facefusion/facefusion-assets/releases/download/models/inswapper_128.onnx",  # noqa: E501
         ],
         sha256="e4a3f08c753cb72d04e10aa0f7dbe3deebbf39567d4ead6dce08e98aa49e16af",
     ),
@@ -99,7 +99,7 @@ _MODEL_REGISTRY: Dict[str, ModelSpec] = {
     "retinaface_resnet50": ModelSpec(
         name="RetinaFace ResNet50 (face parsing)",
         filename="detection_Resnet50_Final.pth",
-        url="https://github.com/xinntao/facexlib/releases/download/v0.1.0/detection_Resnet50_Final.pth",
+        url="https://github.com/xinntao/facexlib/releases/download/v0.1.0/detection_Resnet50_Final.pth",  # noqa: E501
         mirrors=[],
         sha256="6d1de9c2944f2ccddca5f5e010ea5ae64a39845a86311af6fdf30841b0a5a16d",
         subdirectory="facexlib",

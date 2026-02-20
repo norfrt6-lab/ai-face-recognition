@@ -345,7 +345,7 @@ class InsightFaceRecognizer(BaseRecognizer):
     def recognize(
         self,
         image: np.ndarray,
-        database: "FaceDatabase",  # type: ignore[name-defined]  # forward ref
+        database: "FaceDatabase",  # type: ignore[name-defined]  # noqa: F821
         *,
         frame_index: Optional[int] = None,
     ) -> RecognitionResult:

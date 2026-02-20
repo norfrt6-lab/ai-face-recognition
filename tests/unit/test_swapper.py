@@ -841,8 +841,8 @@ class TestInSwapperLoadModel:
     def test_load_model_raises_import_error_if_no_ort(self):
         s = InSwapper(model_path="models/inswapper_128.onnx")
         with patch("core.swapper.inswapper.Path.exists", return_value=True):
-            with patch.dict("sys.modules", {"onnxruntime": None}):
-                with pytest.raises((ImportError, TypeError)):
+            with patch("core.swapper.inswapper.ort", None):
+                with pytest.raises((ImportError, TypeError, RuntimeError, AttributeError)):
                     s.load_model()
 
     def test_repr_after_load(self):

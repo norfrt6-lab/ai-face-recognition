@@ -787,7 +787,7 @@ class YOLOFaceDetector(BaseDetector):
 
     @staticmethod
     def _to_bgr(
-        source: Union[np.ndarray, str, Path, bytes, "PIL.Image.Image"],
+        source: Union[np.ndarray, str, Path, bytes, "PIL.Image.Image"],  # noqa: F821
     ) -> np.ndarray:
         """
         Decode various input formats to a BGR numpy array.

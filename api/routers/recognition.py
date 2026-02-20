@@ -201,7 +201,6 @@ async def recognize(
     logger.info(f"[{request_id[:8]}] POST /recognize — file={image.filename!r}")
 
     # Unpack validated params
-    top_k = params.top_k
     similarity_threshold = params.similarity_threshold
     return_attributes = params.return_attributes
 
