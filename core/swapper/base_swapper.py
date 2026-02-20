@@ -587,6 +587,7 @@ class BaseSwapper(ABC):
         blend_alpha: Optional[float] = None,
         mask_feather: Optional[int] = None,
         max_faces: Optional[int] = None,
+        metadata: Optional[dict] = None,
     ) -> BatchSwapResult:
         """
         Swap *source_embedding* into every detected face in *target_image*.
@@ -603,6 +604,7 @@ class BaseSwapper(ABC):
             blend_alpha:         Override default alpha for this call.
             mask_feather:        Override default feather for this call.
             max_faces:           Cap on how many faces to swap (None = all).
+            metadata:            Optional dict forwarded to each SwapRequest.
 
         Returns:
             ``BatchSwapResult`` with the final composited frame and
@@ -628,6 +630,7 @@ class BaseSwapper(ABC):
                 blend_mode=blend_mode if blend_mode is not None else self.blend_mode,
                 blend_alpha=blend_alpha if blend_alpha is not None else self.blend_alpha,
                 mask_feather=mask_feather if mask_feather is not None else self.mask_feather,
+                metadata=metadata or {},
             )
             result = self.swap(req)
             results.append(result)

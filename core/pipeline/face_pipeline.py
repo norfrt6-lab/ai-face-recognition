@@ -442,6 +442,7 @@ class FacePipeline:
                     blend_alpha=cfg.blend_alpha,
                     mask_feather=cfg.mask_feather,
                     max_faces=cfg.max_faces,
+                    metadata=metadata,
                 )
             else:
                 # Swap single target face
