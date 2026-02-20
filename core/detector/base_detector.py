@@ -248,6 +248,8 @@ class FaceBox:
         y1 = max(0, self.y1)
         x2 = min(w, self.x2)
         y2 = min(h, self.y2)
+        if x2 <= x1 or y2 <= y1:
+            return np.empty((0, 0, 3), dtype=image.dtype)
         return image[y1:y2, x1:x2].copy()
 
     def __repr__(self) -> str:
@@ -370,10 +372,13 @@ class DetectionResult:
         Returns:
             Filtered DetectionResult (same metadata, new faces list).
         """
-        filtered = [f for f in self.faces if f.confidence >= threshold]
-        # Re-index
-        for i, f in enumerate(filtered):
-            f.face_index = i
+        filtered = []
+        for i, f in enumerate(f for f in self.faces if f.confidence >= threshold):
+            from copy import copy  # noqa: PLC0415
+
+            fc = copy(f)
+            fc.face_index = i
+            filtered.append(fc)
         return DetectionResult(
             faces=filtered,
             image_width=self.image_width,
@@ -394,9 +399,13 @@ class DetectionResult:
         Returns:
             Filtered DetectionResult.
         """
-        filtered = [f for f in self.faces if f.width >= min_px and f.height >= min_px]
-        for i, f in enumerate(filtered):
-            f.face_index = i
+        filtered = []
+        for i, f in enumerate(f for f in self.faces if f.width >= min_px and f.height >= min_px):
+            from copy import copy  # noqa: PLC0415
+
+            fc = copy(f)
+            fc.face_index = i
+            filtered.append(fc)
         return DetectionResult(
             faces=filtered,
             image_width=self.image_width,

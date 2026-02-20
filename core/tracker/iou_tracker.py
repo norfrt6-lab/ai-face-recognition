@@ -79,7 +79,7 @@ class IoUTracker:
             matched_dets.add(di)
 
         # Update matched tracks
-        result: List[FaceBox] = [None] * len(faces)  # type: ignore[list-item]
+        result: List[Optional[FaceBox]] = [None] * len(faces)
         for ti, di in pairs:
             tid = track_ids[ti]
             track = self._tracks[tid]

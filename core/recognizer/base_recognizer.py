@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 import numpy as np
+from loguru import logger
 
 
 @dataclass
@@ -336,6 +337,7 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     norm_a = np.linalg.norm(a)
     norm_b = np.linalg.norm(b)
     if norm_a < 1e-10 or norm_b < 1e-10:
+        logger.debug("cosine_similarity: near-zero norm vector detected.")
         return 0.0
     return float(np.clip(np.dot(a, b) / (norm_a * norm_b), -1.0, 1.0))
 
@@ -399,6 +401,9 @@ def average_embeddings(embeddings: List[np.ndarray]) -> np.ndarray:
     mean = stacked.mean(axis=0)  # (D,)
     norm = np.linalg.norm(mean)
     if norm < 1e-10:
+        logger.warning(
+            "average_embeddings: result has near-zero norm (all-zero or cancelling vectors)."
+        )
         return mean
     return (mean / norm).astype(np.float32)
 

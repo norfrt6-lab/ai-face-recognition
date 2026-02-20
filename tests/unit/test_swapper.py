@@ -546,13 +546,14 @@ class TestMakeCropMask:
         mask = _make_crop_mask(128, feather=0)
         assert mask[0, 0] == 0
 
-    def test_feathering_reduces_max(self):
+    def test_feathering_smooths_edges(self):
         mask_no_feather = _make_crop_mask(128, feather=0)
         mask_with_feather = _make_crop_mask(128, feather=20)
-        # Both should have max 255 before feathering; after feathering
-        # the maximum can still be 255 at centre — but the edges should be softer
-        # (mean should be lower with more feathering due to wider gradient)
-        assert mask_no_feather.mean() >= mask_with_feather.mean() or True  # informational
+        # Both masks should be valid uint8
+        assert mask_no_feather.max() == 255
+        assert mask_with_feather.max() == 255
+        # Feathering should produce a different mask (smoother gradient at edges)
+        assert not (mask_no_feather == mask_with_feather).all()
 
     def test_different_sizes(self):
         m64 = _make_crop_mask(64)

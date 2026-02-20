@@ -338,6 +338,11 @@ class FaceDatabase:
         if not embeddings:
             raise ValueError("embeddings list must not be empty.")
 
+        # Validate all embeddings before registering any to avoid partial registration
+        vectors = [self._extract_vector(e) for e in embeddings]
+        for v in vectors:
+            self._validate_vector(v)
+
         identity: FaceIdentity = None  # type: ignore[assignment]
         for i, emb in enumerate(embeddings):
             identity = self.register(
@@ -346,7 +351,8 @@ class FaceDatabase:
                 metadata=metadata,
                 overwrite=(overwrite and i == 0),  # overwrite only on first
             )
-        assert identity is not None, "Loop must execute at least once (empty check above)"
+        if identity is None:
+            raise RuntimeError("register_many: loop did not execute (should be unreachable)")
         return identity
 
     # ------------------------------------------------------------------
@@ -572,13 +578,21 @@ class FaceDatabase:
             best_sim = float(sims[best_j])
             best_name = names[best_j]
 
-            # Resolve per-identity best score using stored strategy
-            # (gallery is mean embeddings; re-check with strategy if needed)
+            # Resolve per-identity best score using stored strategy.
+            # The gallery matrix uses mean embeddings; when strategy is "best",
+            # re-check ALL identities (not just the matrix winner) because the
+            # best per-embedding similarity may rank differently than the mean.
             if self._strategy == "best":
                 with self._lock:
-                    identity = self._identities.get(best_name)
-                    if identity:
-                        best_sim = identity.best_similarity(vectors[i])
+                    rechecked_name = best_name
+                    rechecked_sim = best_sim
+                    for name, identity in self._identities.items():
+                        sim = identity.best_similarity(vectors[i])
+                        if sim > rechecked_sim:
+                            rechecked_sim = sim
+                            rechecked_name = name
+                    best_sim = rechecked_sim
+                    best_name = rechecked_name
 
             best_dist = float(np.sqrt(max(0.0, 2.0 * (1.0 - best_sim))))
             is_known = best_sim >= threshold

@@ -199,7 +199,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Check limit
         if len(window) >= self.max_requests:
             oldest = window[0]
-            retry_after = int(self.window_seconds - (now - oldest)) + 1
+            retry_after = max(1, int(self.window_seconds - (now - oldest)) + 1)
             logger.warning(
                 f"Rate limit exceeded | ip={client_ip} | "
                 f"requests={len(window)}/{self.max_requests} | "

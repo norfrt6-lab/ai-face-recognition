@@ -370,8 +370,8 @@ class FacePipeline:
                 error="No face detected in the source image.",
             )
 
-        # Pick the source face
-        src_face_idx = min(cfg.source_face_index, len(source_detection.faces) - 1)
+        # Pick the source face (clamp to valid range)
+        src_face_idx = max(0, min(cfg.source_face_index, len(source_detection.faces) - 1))
         source_face = source_detection.faces[src_face_idx]
 
         t0 = _timer()
@@ -456,8 +456,8 @@ class FacePipeline:
                     metadata=metadata,
                 )
             else:
-                # Swap single target face
-                tgt_face_idx = min(cfg.target_face_index, len(target_detection.faces) - 1)
+                # Swap single target face (clamp to valid range)
+                tgt_face_idx = max(0, min(cfg.target_face_index, len(target_detection.faces) - 1))
                 tgt_face = target_detection.faces[tgt_face_idx]
 
                 single_req = SwapRequest(

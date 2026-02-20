@@ -685,6 +685,9 @@ def get_frame_at(
     if not cap.isOpened():
         raise RuntimeError(f"Cannot open video: {video_path}")
 
+    if frame_index < 0:
+        cap.release()
+        raise IndexError(f"frame_index must be non-negative, got {frame_index}")
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     if frame_index >= total:
         cap.release()

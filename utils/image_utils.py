@@ -196,6 +196,8 @@ def resize_image(
 
     if width is None and height is None:
         return image
+    if h == 0 or w == 0:
+        return image
     if width is None:
         scale = height / h
         width = int(w * scale)
@@ -452,6 +454,13 @@ def masked_blend(
     Returns:
         Blended BGR image.
     """
+    if mask.ndim != 2:
+        raise ValueError(f"masked_blend: mask must be 2-D (H, W), got shape {mask.shape}")
+    if mask.shape[:2] != src.shape[:2] or mask.shape[:2] != dst.shape[:2]:
+        raise ValueError(
+            f"masked_blend: shape mismatch — src={src.shape}, dst={dst.shape}, mask={mask.shape}"
+        )
+
     if mask.dtype != np.float32:
         mask = mask.astype(np.float32)
 
