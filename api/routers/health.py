@@ -59,7 +59,7 @@ async def health_check(request: Request) -> HealthResponse:
     - ``degraded`` — at least one optional component is not loaded.
     - ``down``     — a required component is missing.
     """
-    uptime = (time.perf_counter() - _START_TIME)
+    uptime = time.perf_counter() - _START_TIME
 
     components: Dict[str, ComponentHealth] = {}
     overall = ComponentStatus.OK
@@ -67,52 +67,37 @@ async def health_check(request: Request) -> HealthResponse:
     state = request.app.state
 
     # Detector
-    components["detector"] = _check_component(
-        state, "detector", required=True
-    )
+    components["detector"] = _check_component(state, "detector", required=True)
     if components["detector"].status == ComponentStatus.DOWN:
         overall = ComponentStatus.DOWN
 
     # Recognizer
-    components["recognizer"] = _check_component(
-        state, "recognizer", required=True
-    )
+    components["recognizer"] = _check_component(state, "recognizer", required=True)
     if components["recognizer"].status == ComponentStatus.DOWN:
         overall = ComponentStatus.DOWN
 
     # Swapper
-    components["swapper"] = _check_component(
-        state, "swapper", required=True
-    )
+    components["swapper"] = _check_component(state, "swapper", required=True)
     if components["swapper"].status == ComponentStatus.DOWN:
         overall = ComponentStatus.DOWN
 
     # Enhancer (optional — degraded but not down if missing)
-    components["enhancer"] = _check_component(
-        state, "enhancer", required=False
-    )
-    if (
-        overall == ComponentStatus.OK
-        and components["enhancer"].status != ComponentStatus.OK
-    ):
+    components["enhancer"] = _check_component(state, "enhancer", required=False)
+    if overall == ComponentStatus.OK and components["enhancer"].status != ComponentStatus.OK:
         overall = ComponentStatus.DEGRADED
 
     # Face database (optional)
-    components["face_database"] = _check_component(
-        state, "face_database", required=False
-    )
-    if (
-        overall == ComponentStatus.OK
-        and components["face_database"].status != ComponentStatus.OK
-    ):
+    components["face_database"] = _check_component(state, "face_database", required=False)
+    if overall == ComponentStatus.OK and components["face_database"].status != ComponentStatus.OK:
         overall = ComponentStatus.DEGRADED
 
     try:
         from config.settings import settings  # noqa: PLC0415
-        version     = settings.app_version
+
+        version = settings.app_version
         environment = settings.environment
     except Exception:
-        version     = "unknown"
+        version = "unknown"
         environment = "unknown"
 
     logger.debug(f"Health check: overall={overall.value} uptime={uptime:.1f}s")

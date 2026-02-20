@@ -54,7 +54,7 @@ logger = get_logger(__name__)
 
 # Mean and std used by inswapper (same as ArcFace / most InsightFace models)
 _MEAN = np.array([0.5, 0.5, 0.5], dtype=np.float32)
-_STD  = np.array([0.5, 0.5, 0.5], dtype=np.float32)
+_STD = np.array([0.5, 0.5, 0.5], dtype=np.float32)
 
 # Native model resolution
 _MODEL_INPUT_SIZE = 128
@@ -121,14 +121,14 @@ class InSwapper(BaseSwapper):
         self._session = None
 
         # Model metadata (populated during load)
-        self._input_name:  Optional[str] = None   # aligned-face tensor name
-        self._latent_name: Optional[str] = None   # identity latent tensor name
-        self._output_name: Optional[str] = None   # swapped-face tensor name
-        self._emap:        Optional[np.ndarray] = None  # (512, 512) identity matrix
+        self._input_name: Optional[str] = None  # aligned-face tensor name
+        self._latent_name: Optional[str] = None  # identity latent tensor name
+        self._output_name: Optional[str] = None  # swapped-face tensor name
+        self._emap: Optional[np.ndarray] = None  # (512, 512) identity matrix
 
         # Inference statistics (cumulative, guarded by _stats_lock)
-        self._stats_lock               = threading.Lock()
-        self._total_calls:     int   = 0
+        self._stats_lock = threading.Lock()
+        self._total_calls: int = 0
         self._total_inference: float = 0.0  # ms
 
     # ------------------------------------------------------------------
@@ -160,9 +160,7 @@ class InSwapper(BaseSwapper):
 
         # Resolve providers to those available in this ORT installation
         resolved_providers = self._resolve_providers(self.providers)
-        logger.info(
-            f"Loading inswapper_128.onnx | providers={resolved_providers}"
-        )
+        logger.info(f"Loading inswapper_128.onnx | providers={resolved_providers}")
 
         try:
             sess_opts = ort.SessionOptions()  # type: ignore[union-attr]
@@ -181,7 +179,7 @@ class InSwapper(BaseSwapper):
                 f"Failed to create ONNX Runtime session for {self.model_path}: {exc}"
             ) from exc
 
-        inputs  = self._session.get_inputs()
+        inputs = self._session.get_inputs()
         outputs = self._session.get_outputs()
 
         if len(inputs) < 2:
@@ -194,7 +192,7 @@ class InSwapper(BaseSwapper):
         #   inputs[0] → target face crop  (1, 3, 128, 128)
         #   inputs[1] → latent code        (1, 512)
         #   outputs[0]→ swapped face crop  (1, 3, 128, 128)
-        self._input_name  = inputs[0].name
+        self._input_name = inputs[0].name
         self._latent_name = inputs[1].name
         self._output_name = outputs[0].name
 
@@ -279,7 +277,7 @@ class InSwapper(BaseSwapper):
 
         align_time = self._timer() - t_align
 
-        crop_tensor = self._preprocess(aligned_crop)    # (1, 3, 128, 128)
+        crop_tensor = self._preprocess(aligned_crop)  # (1, 3, 128, 128)
 
         latent = self._build_latent(request.source_embedding)  # (1, 512)
 
@@ -288,7 +286,7 @@ class InSwapper(BaseSwapper):
             outputs = self._session.run(
                 [self._output_name],
                 {
-                    self._input_name:  crop_tensor,
+                    self._input_name: crop_tensor,
                     self._latent_name: latent,
                 },
             )
@@ -303,13 +301,13 @@ class InSwapper(BaseSwapper):
             )
         inference_time = self._timer() - t_inf
 
-        swapped_crop = self._postprocess(outputs[0])    # (128, 128, 3) BGR uint8
+        swapped_crop = self._postprocess(outputs[0])  # (128, 128, 3) BGR uint8
 
         t_blend = self._timer()
 
         blend_mode = request.blend_mode if request.blend_mode is not None else self.blend_mode
-        feather    = request.mask_feather if request.mask_feather is not None else self.mask_feather
-        alpha      = request.blend_alpha  if request.blend_alpha  is not None else self.blend_alpha
+        feather = request.mask_feather if request.mask_feather is not None else self.mask_feather
+        alpha = request.blend_alpha if request.blend_alpha is not None else self.blend_alpha
 
         try:
             output_frame = self._paste_back(
@@ -333,7 +331,7 @@ class InSwapper(BaseSwapper):
         blend_time = self._timer() - t_blend
 
         with self._stats_lock:
-            self._total_calls     += 1
+            self._total_calls += 1
             self._total_inference += inference_time
         total_time = self._timer() - t0
 
@@ -353,11 +351,15 @@ class InSwapper(BaseSwapper):
             inference_time_ms=inference_time,
             align_time_ms=align_time,
             blend_time_ms=blend_time,
-            intermediate={
-                "aligned_crop":  aligned_crop,
-                "swapped_crop":  swapped_crop,
-                "affine_matrix": affine_M,
-            } if request.metadata.get("save_intermediate") else None,
+            intermediate=(
+                {
+                    "aligned_crop": aligned_crop,
+                    "swapped_crop": swapped_crop,
+                    "affine_matrix": affine_M,
+                }
+                if request.metadata.get("save_intermediate")
+                else None
+            ),
         )
 
     # ------------------------------------------------------------------
@@ -366,9 +368,9 @@ class InSwapper(BaseSwapper):
 
     def release(self) -> None:
         """Free the ONNX session and clear model metadata."""
-        self._session     = None
-        self._emap        = None
-        self._input_name  = None
+        self._session = None
+        self._emap = None
+        self._input_name = None
         self._latent_name = None
         self._output_name = None
         super().release()
@@ -395,7 +397,7 @@ class InSwapper(BaseSwapper):
     def reset_stats(self) -> None:
         """Reset cumulative inference statistics."""
         with self._stats_lock:
-            self._total_calls     = 0
+            self._total_calls = 0
             self._total_inference = 0.0
 
     # ------------------------------------------------------------------
@@ -421,10 +423,10 @@ class InSwapper(BaseSwapper):
         rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
 
         # HWC → CHW, [0, 255] → [-1.0, 1.0]
-        tensor = rgb.astype(np.float32) / 255.0           # [0, 1]
-        tensor = (tensor - _MEAN) / _STD                  # [-1, 1]
-        tensor = tensor.transpose(2, 0, 1)                # CHW
-        tensor = np.expand_dims(tensor, axis=0)           # NCHW
+        tensor = rgb.astype(np.float32) / 255.0  # [0, 1]
+        tensor = (tensor - _MEAN) / _STD  # [-1, 1]
+        tensor = tensor.transpose(2, 0, 1)  # CHW
+        tensor = np.expand_dims(tensor, axis=0)  # NCHW
         return tensor
 
     @staticmethod
@@ -439,7 +441,7 @@ class InSwapper(BaseSwapper):
             (H, W, 3) BGR uint8 image.
         """
         # Remove batch dim, CHW → HWC
-        img = output[0].transpose(1, 2, 0)                # HWC, [-1, 1]
+        img = output[0].transpose(1, 2, 0)  # HWC, [-1, 1]
 
         # [-1, 1] → [0, 255]
         img = (img * _STD + _MEAN) * 255.0
@@ -513,9 +515,7 @@ class InSwapper(BaseSwapper):
                         return arr.reshape(512, 512)
                     # raw_data path
                     if initializer.raw_data:
-                        arr = np.frombuffer(
-                            initializer.raw_data, dtype=np.float32
-                        ).copy()
+                        arr = np.frombuffer(initializer.raw_data, dtype=np.float32).copy()
                         if arr.size == 512 * 512:
                             return arr.reshape(512, 512)
         except ImportError:
@@ -586,8 +586,10 @@ class InSwapper(BaseSwapper):
         # Apply global alpha blend against the original frame
         if alpha < 1.0:
             swapped = cv2.addWeighted(
-                swapped,  alpha,
-                original, 1.0 - alpha,
+                swapped,
+                alpha,
+                original,
+                1.0 - alpha,
                 0,
             )
 

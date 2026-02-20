@@ -20,9 +20,10 @@ from fastapi import (
     status,
 )
 
+from api.metrics import RECOGNITION_COUNT
+from api.schemas.requests import RecognizeRequest as RecognizeRequestSchema
+from api.schemas.requests import RegisterRequest as RegisterRequestSchema
 from api.schemas.requests import (
-    RecognizeRequest as RecognizeRequestSchema,
-    RegisterRequest as RegisterRequestSchema,
     recognize_form_dep,
     register_form_dep,
 )
@@ -32,11 +33,10 @@ from api.schemas.responses import (
     FaceAttributeResponse,
     FaceMatchResponse,
     LandmarkPoint,
-    RecognizeResponse,
     RecognizedFace,
+    RecognizeResponse,
     RegisterResponse,
 )
-from api.metrics import RECOGNITION_COUNT
 from utils.circuit_breaker import CircuitBreaker, CircuitOpenError
 from utils.logger import get_logger
 
@@ -55,6 +55,7 @@ def _get_upload_limits() -> tuple[int, int, int]:
     """Return (max_bytes, max_dim, min_dim) from settings or defaults."""
     try:
         from config.settings import settings  # noqa: PLC0415
+
         return (
             settings.api.max_upload_bytes,
             settings.api.max_image_dimension,
@@ -133,10 +134,7 @@ def _facebox_to_landmarks(face) -> Optional[List[LandmarkPoint]]:
     """Convert FaceBox landmarks to a list of LandmarkPoint models."""
     if not face.has_landmarks or face.landmarks is None:
         return None
-    return [
-        LandmarkPoint(x=float(pt[0]), y=float(pt[1]))
-        for pt in face.landmarks
-    ]
+    return [LandmarkPoint(x=float(pt[0]), y=float(pt[1])) for pt in face.landmarks]
 
 
 def _check_components(state, *names: str) -> None:
@@ -181,9 +179,9 @@ def _check_components(state, *names: str) -> None:
     },
 )
 async def recognize(
-    request:     Request,
-    image:       UploadFile                = File(..., description="Image file (JPEG / PNG / WebP / BMP)."),
-    params:      RecognizeRequestSchema    = Depends(recognize_form_dep),
+    request: Request,
+    image: UploadFile = File(..., description="Image file (JPEG / PNG / WebP / BMP)."),
+    params: RecognizeRequestSchema = Depends(recognize_form_dep),
 ) -> RecognizeResponse:
     """
     Detect all faces in *image* and attempt to match each one against
@@ -209,10 +207,10 @@ async def recognize(
 
     _check_components(request.app.state, "detector", "recognizer")
 
-    state      = request.app.state
-    detector   = state.detector
+    state = request.app.state
+    detector = state.detector
     recognizer = state.recognizer
-    face_db    = getattr(state, "face_database", None)
+    face_db = getattr(state, "face_database", None)
 
     img = await _decode_upload(image)
     h, w = img.shape[:2]
@@ -262,6 +260,7 @@ async def recognize(
     else:
         try:
             from config.settings import settings  # noqa: PLC0415
+
             thresh = settings.recognizer.similarity_threshold
         except Exception:
             thresh = 0.45
@@ -286,15 +285,11 @@ async def recognize(
             embedding = None
         except asyncio.TimeoutError:
             _recognizer_breaker.record_failure()
-            logger.warning(
-                f"[{request_id[:8]}] Embedding timed out for face {face.face_index}"
-            )
+            logger.warning(f"[{request_id[:8]}] Embedding timed out for face {face.face_index}")
             embedding = None
         except Exception as exc:
             _recognizer_breaker.record_failure()
-            logger.warning(
-                f"[{request_id[:8]}] Embedding failed for face {face.face_index}: {exc}"
-            )
+            logger.warning(f"[{request_id[:8]}] Embedding failed for face {face.face_index}: {exc}")
             embedding = None
 
         # Attribute extraction
@@ -370,9 +365,7 @@ async def recognize(
                 attributes=attributes,
                 match=match_response,
                 embedding_norm=(
-                    float(np.linalg.norm(embedding.vector))
-                    if embedding is not None
-                    else None
+                    float(np.linalg.norm(embedding.vector)) if embedding is not None else None
                 ),
             )
         )
@@ -412,9 +405,9 @@ async def recognize(
     },
 )
 async def register(
-    request:     Request,
-    image:       UploadFile              = File(..., description="Face image (JPEG / PNG / WebP / BMP)."),
-    params:      RegisterRequestSchema   = Depends(register_form_dep),
+    request: Request,
+    image: UploadFile = File(..., description="Face image (JPEG / PNG / WebP / BMP)."),
+    params: RegisterRequestSchema = Depends(register_form_dep),
 ) -> RegisterResponse:
     """
     Register a face identity in the database.
@@ -427,25 +420,24 @@ async def register(
     - **overwrite**    Replace stored embeddings if True.
     - **consent**      Must be ``true``.
     """
-    t_start    = time.perf_counter()
+    t_start = time.perf_counter()
     request_id = str(uuid.uuid4())
 
     # Unpack validated params
-    name        = params.name
+    name = params.name
     identity_id = params.identity_id
-    overwrite   = params.overwrite
+    overwrite = params.overwrite
 
     logger.info(
-        f"[{request_id[:8]}] POST /register — "
-        f"name={name!r} identity_id={identity_id!r}"
+        f"[{request_id[:8]}] POST /register — " f"name={name!r} identity_id={identity_id!r}"
     )
 
     _check_components(request.app.state, "detector", "recognizer")
 
-    state      = request.app.state
-    detector   = state.detector
+    state = request.app.state
+    detector = state.detector
     recognizer = state.recognizer
-    face_db    = getattr(state, "face_database", None)
+    face_db = getattr(state, "face_database", None)
 
     if face_db is None:
         raise HTTPException(
@@ -534,7 +526,9 @@ async def register(
         if identity_id and not overwrite:
             # Append embedding to existing identity — atomic check inside register()
             result = face_db.register(
-                name=name, embedding=embedding, append_only=True,
+                name=name,
+                embedding=embedding,
+                append_only=True,
             )
             result_id = result.identity_id
             total_emb = result.num_embeddings
@@ -543,7 +537,9 @@ async def register(
         elif identity_id and overwrite:
             # Replace all embeddings for an existing identity
             result = face_db.register(
-                name=name, embedding=embedding, overwrite=True,
+                name=name,
+                embedding=embedding,
+                overwrite=True,
             )
             result_id = result.identity_id
             total_emb = result.num_embeddings
@@ -596,10 +592,10 @@ async def register(
     },
 )
 async def list_identities(
-    request:     Request,
-    page:        int            = 1,
-    page_size:   int            = 50,
-    name_filter: Optional[str]  = None,
+    request: Request,
+    page: int = 1,
+    page_size: int = 50,
+    name_filter: Optional[str] = None,
 ) -> dict:
     # Validate pagination bounds
     page = max(1, page)
@@ -613,7 +609,7 @@ async def list_identities(
     - **page_size**   Items per page (default 50, max 200).
     - **name_filter** Optional case-insensitive substring filter on name.
     """
-    state   = request.app.state
+    state = request.app.state
     face_db = getattr(state, "face_database", None)
 
     if face_db is None:
@@ -637,7 +633,7 @@ async def list_identities(
 
     total = len(all_names)
     start = (page - 1) * page_size
-    end   = start + page_size
+    end = start + page_size
     page_names = all_names[start:end]
 
     # Build rich response items from FaceIdentity objects
@@ -645,20 +641,22 @@ async def list_identities(
     for n in page_names:
         identity = face_db.get_identity(n)
         if identity:
-            items.append({
-                "name":           identity.name,
-                "identity_id":    identity.identity_id,
-                "num_embeddings": identity.num_embeddings,
-                "created_at":     identity.created_at,
-                "updated_at":     identity.updated_at,
-            })
+            items.append(
+                {
+                    "name": identity.name,
+                    "identity_id": identity.identity_id,
+                    "num_embeddings": identity.num_embeddings,
+                    "created_at": identity.created_at,
+                    "updated_at": identity.updated_at,
+                }
+            )
 
     return {
-        "total":       total,
-        "page":        page,
-        "page_size":   page_size,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
         "total_pages": math.ceil(total / page_size) if page_size > 0 else 0,
-        "items":       items,
+        "items": items,
     }
 
 
@@ -695,12 +693,12 @@ async def get_identity(request: Request, identity_id: str) -> dict:
         )
 
     return {
-        "identity_id":     identity.identity_id,
-        "name":            identity.name,
-        "num_embeddings":  identity.num_embeddings,
-        "created_at":      identity.created_at,
-        "updated_at":      identity.updated_at,
-        "metadata":        identity.metadata,
+        "identity_id": identity.identity_id,
+        "name": identity.name,
+        "num_embeddings": identity.num_embeddings,
+        "created_at": identity.created_at,
+        "updated_at": identity.updated_at,
+        "metadata": identity.metadata,
     }
 
 
@@ -714,9 +712,9 @@ async def get_identity(request: Request, identity_id: str) -> dict:
     },
 )
 async def delete_identity(
-    request:     Request,
+    request: Request,
     identity_id: str,
-    confirm:     bool = Form(default=False),
+    confirm: bool = Form(default=False),
 ) -> dict:
     """
     Remove an identity and all its embeddings from the face database.
@@ -766,9 +764,9 @@ async def delete_identity(
     },
 )
 async def rename_identity(
-    request:     Request,
+    request: Request,
     identity_id: str,
-    new_name:    str = Form(..., min_length=1, max_length=128),
+    new_name: str = Form(..., min_length=1, max_length=128),
 ) -> dict:
     """
     Rename an existing identity in the face database.

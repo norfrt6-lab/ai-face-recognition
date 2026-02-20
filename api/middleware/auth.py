@@ -54,7 +54,4 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         """Constant-time comparison against all accepted keys."""
         if not candidate:
             return False
-        return any(
-            hmac.compare_digest(candidate, valid_key)
-            for valid_key in self._api_keys
-        )
+        return any(hmac.compare_digest(candidate, valid_key) for valid_key in self._api_keys)

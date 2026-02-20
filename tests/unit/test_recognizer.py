@@ -109,8 +109,8 @@ def emb_charlie(vec_charlie) -> FaceEmbedding:
 def populated_db(vec_alice, vec_bob, vec_charlie) -> FaceDatabase:
     """A FaceDatabase pre-loaded with Alice, Bob, Charlie."""
     db = FaceDatabase(similarity_threshold=0.45)
-    db.register("Alice",   FaceEmbedding(vector=vec_alice))
-    db.register("Bob",     FaceEmbedding(vector=vec_bob))
+    db.register("Alice", FaceEmbedding(vector=vec_alice))
+    db.register("Bob", FaceEmbedding(vector=vec_bob))
     db.register("Charlie", FaceEmbedding(vector=vec_charlie))
     return db
 
@@ -206,7 +206,7 @@ class TestFaceEmbedding:
         sim = emb_alice.cosine_similarity(emb_bob)
         # Random unit vectors in 512-D are nearly orthogonal
         assert -1.0 <= sim <= 1.0
-        assert sim < 0.5   # should be low for random vectors
+        assert sim < 0.5  # should be low for random vectors
 
     def test_cosine_similarity_symmetric(self, emb_alice, emb_bob):
         assert emb_alice.cosine_similarity(emb_bob) == pytest.approx(
@@ -253,7 +253,7 @@ class TestFaceEmbedding:
 
     def test_attributes_stored(self):
         attr = FaceAttribute(age=28.0, gender="F")
-        emb  = FaceEmbedding(vector=_rand_vec(), attributes=attr)
+        emb = FaceEmbedding(vector=_rand_vec(), attributes=attr)
         assert emb.attributes is not None
         assert emb.attributes.age == pytest.approx(28.0)
 
@@ -317,9 +317,13 @@ class TestRecognitionResult:
     @pytest.fixture
     def result_with_matches(self) -> RecognitionResult:
         matches = [
-            FaceMatch(identity="Alice",   similarity=0.85, distance=0.10, face_index=0, is_known=True),
-            FaceMatch(identity=None,      similarity=0.30, distance=0.90, face_index=1, is_known=False),
-            FaceMatch(identity="Charlie", similarity=0.72, distance=0.25, face_index=2, is_known=True),
+            FaceMatch(
+                identity="Alice", similarity=0.85, distance=0.10, face_index=0, is_known=True
+            ),
+            FaceMatch(identity=None, similarity=0.30, distance=0.90, face_index=1, is_known=False),
+            FaceMatch(
+                identity="Charlie", similarity=0.72, distance=0.25, face_index=2, is_known=True
+            ),
         ]
         return RecognitionResult(
             matches=matches,
@@ -525,7 +529,7 @@ class TestBaseRecognizer:
 
     def test_require_loaded_ok_after_load(self, recognizer):
         recognizer.load_model()
-        recognizer._require_loaded()   # Should not raise
+        recognizer._require_loaded()  # Should not raise
 
     def test_get_embedding_returns_result(self, recognizer):
         recognizer.load_model()
@@ -618,7 +622,7 @@ class TestFaceIdentity:
 
     def test_add_embedding_normalises(self):
         fi = FaceIdentity(name="Test")
-        v = np.ones(512, dtype=np.float32)   # not unit-norm
+        v = np.ones(512, dtype=np.float32)  # not unit-norm
         fi.add_embedding(v)
         stored = fi.embeddings[0]
         assert np.linalg.norm(stored) == pytest.approx(1.0, abs=1e-5)
@@ -673,7 +677,7 @@ class TestFaceIdentity:
 
     def test_identity_id_auto_generated(self):
         fi = FaceIdentity(name="Test")
-        assert len(fi.identity_id) == 36   # UUID4 string length
+        assert len(fi.identity_id) == 36  # UUID4 string length
         assert "-" in fi.identity_id
 
     def test_created_at_set(self):
@@ -705,7 +709,7 @@ class TestFaceDatabaseRegister:
 
     def test_register_multiple_identities(self, empty_db, emb_alice, emb_bob):
         empty_db.register("Alice", emb_alice)
-        empty_db.register("Bob",   emb_bob)
+        empty_db.register("Bob", emb_bob)
         assert empty_db.count == 2
 
     def test_register_same_name_appends_shot(self, empty_db, vec_alice):
@@ -824,7 +828,7 @@ class TestFaceDatabaseSearch:
     def test_search_batch_returns_list(self, populated_db, vec_alice, vec_bob):
         queries = [
             FaceEmbedding(vector=vec_alice, face_index=0),
-            FaceEmbedding(vector=vec_bob,   face_index=1),
+            FaceEmbedding(vector=vec_bob, face_index=1),
         ]
         results = populated_db.search_batch(queries)
         assert len(results) == 2
@@ -1071,8 +1075,7 @@ class TestFaceDatabaseThreadSafety:
                 errors.append(e)
 
         threads = [
-            threading.Thread(target=register_worker, args=(f"person_{i}", i))
-            for i in range(20)
+            threading.Thread(target=register_worker, args=(f"person_{i}", i)) for i in range(20)
         ]
         for t in threads:
             t.start()

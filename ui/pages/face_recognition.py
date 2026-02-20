@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import io
 import json
+import os as _os
 import time
 from typing import Any, Dict, List, Optional
 
@@ -21,17 +22,15 @@ import requests
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 
-
-import os as _os
 _DEFAULT_API_URL = _os.getenv("UI_API_BASE_URL", "http://localhost:8000")
 _SECTION_RECOGNIZE = "🔍 Recognize Faces"
-_SECTION_REGISTER  = "➕ Register Identity"
-_SECTION_DATABASE  = "🗄️ Face Database"
+_SECTION_REGISTER = "➕ Register Identity"
+_SECTION_DATABASE = "🗄️ Face Database"
 
 _CONFIDENCE_COLORS = {
-    "high":   "#00C851",   # green  ≥ 0.75
-    "medium": "#FF8800",   # orange 0.50 – 0.74
-    "low":    "#FF4444",   # red    < 0.50
+    "high": "#00C851",  # green  ≥ 0.75
+    "medium": "#FF8800",  # orange 0.50 – 0.74
+    "low": "#FF4444",  # red    < 0.50
     "unknown": "#AAAAAA",  # grey   not recognized
 }
 
@@ -51,9 +50,9 @@ def _post_recognize(
     url = f"{_api_url()}/api/v1/recognize"
 
     data: Dict[str, Any] = {
-        "consent":           str(consent).lower(),
+        "consent": str(consent).lower(),
         "return_attributes": str(return_attributes).lower(),
-        "top_k":             "5",
+        "top_k": "5",
     }
     if similarity_threshold is not None:
         data["similarity_threshold"] = str(similarity_threshold)
@@ -69,8 +68,7 @@ def _post_recognize(
             return None
     except requests.exceptions.ConnectionError:
         st.error(
-            f"Cannot connect to API at `{_api_url()}`. "
-            "Make sure the API server is running."
+            f"Cannot connect to API at `{_api_url()}`. " "Make sure the API server is running."
         )
         return None
     except Exception as exc:
@@ -90,8 +88,8 @@ def _post_register(
     url = f"{_api_url()}/api/v1/register"
 
     data: Dict[str, Any] = {
-        "name":      name,
-        "consent":   str(consent).lower(),
+        "name": name,
+        "consent": str(consent).lower(),
         "overwrite": str(overwrite).lower(),
     }
     if identity_id:
@@ -120,7 +118,7 @@ def _get_identities(
     name_filter: Optional[str] = None,
 ) -> Optional[Dict]:
     """Call GET /api/v1/identities and return parsed JSON."""
-    url    = f"{_api_url()}/api/v1/identities"
+    url = f"{_api_url()}/api/v1/identities"
     params = {"page": page, "page_size": page_size}
     if name_filter:
         params["name_filter"] = name_filter
@@ -142,7 +140,7 @@ def _get_identities(
 
 def _delete_identity(identity_id: str) -> bool:
     """Call DELETE /api/v1/identities/{id} and return True on success."""
-    url  = f"{_api_url()}/api/v1/identities/{identity_id}"
+    url = f"{_api_url()}/api/v1/identities/{identity_id}"
     data = {"confirm": "true"}
     try:
         resp = requests.delete(url, data=data, timeout=15)
@@ -154,7 +152,7 @@ def _delete_identity(identity_id: str) -> bool:
 
 def _rename_identity(identity_id: str, new_name: str) -> bool:
     """Call PATCH /api/v1/identities/{id} and return True on success."""
-    url  = f"{_api_url()}/api/v1/identities/{identity_id}"
+    url = f"{_api_url()}/api/v1/identities/{identity_id}"
     data = {"new_name": new_name}
     try:
         resp = requests.patch(url, data=data, timeout=15)
@@ -185,7 +183,7 @@ def _annotate_image(
         Annotated PIL Image (RGB copy).
     """
     annotated = image.copy().convert("RGB")
-    draw      = ImageDraw.Draw(annotated, "RGBA")
+    draw = ImageDraw.Draw(annotated, "RGBA")
 
     # Try to load a reasonable font; fall back to default if unavailable
     try:
@@ -196,7 +194,7 @@ def _annotate_image(
         font_small = font_label
 
     for face in faces:
-        bbox  = face.get("bbox", {})
+        bbox = face.get("bbox", {})
         match = face.get("match", {})
         attrs = face.get("attributes") or {}
 
@@ -205,9 +203,9 @@ def _annotate_image(
         x2 = int(bbox.get("x2", 0))
         y2 = int(bbox.get("y2", 0))
 
-        is_known    = match.get("is_known", False)
-        identity    = match.get("identity_name") or "Unknown"
-        similarity  = match.get("similarity", 0.0)
+        is_known = match.get("is_known", False)
+        identity = match.get("identity_name") or "Unknown"
+        similarity = match.get("similarity", 0.0)
         conf_detect = bbox.get("confidence", 0.0)
 
         # Choose box colour
@@ -241,17 +239,16 @@ def _annotate_image(
         bbox_text = draw.textbbox((x1, y1 - 20), label, font=font_label)
         pad = 3
         draw.rectangle(
-            [bbox_text[0] - pad, bbox_text[1] - pad,
-             bbox_text[2] + pad, bbox_text[3] + pad],
+            [bbox_text[0] - pad, bbox_text[1] - pad, bbox_text[2] + pad, bbox_text[3] + pad],
             fill=(r, g, b, 200),
         )
         draw.text((x1, y1 - 20), label, fill=(255, 255, 255, 255), font=font_label)
 
         # Age / gender sub-label
         if attrs:
-            age    = attrs.get("age")
+            age = attrs.get("age")
             gender = attrs.get("gender")
-            parts  = []
+            parts = []
             if age is not None:
                 parts.append(f"age {age:.0f}")
             if gender:
@@ -295,7 +292,7 @@ def _render_recognize_section() -> None:
             type=["jpg", "jpeg", "png", "webp", "bmp"],
             key="recog_upload",
         )
-        
+
         # Consent checkbox
         consent = st.checkbox(
             "I confirm I have explicit consent from all individuals in this image.",
@@ -320,13 +317,13 @@ def _render_recognize_section() -> None:
     if uploaded is None:
         st.info("👆 Upload an image to get started.")
         return
-    
+
     if not consent:
         st.warning("⚠️ Please check the consent box to proceed with face recognition.")
         return
 
     image_bytes = uploaded.read()
-    pil_image   = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
     st.divider()
 
@@ -349,7 +346,7 @@ def _render_recognize_section() -> None:
     # Cache result so re-renders don't re-call the API
     if run_btn:
         with st.spinner("Running face recognition …"):
-            t0     = time.perf_counter()
+            t0 = time.perf_counter()
             result = _post_recognize(
                 image_bytes=image_bytes,
                 filename=uploaded.name,
@@ -360,27 +357,27 @@ def _render_recognize_section() -> None:
             elapsed = (time.perf_counter() - t0) * 1000
         if result is not None:
             st.session_state["recog_last_result"] = result
-            st.session_state["recog_last_image"]  = pil_image
-            st.session_state["recog_elapsed_ms"]  = elapsed
+            st.session_state["recog_last_image"] = pil_image
+            st.session_state["recog_elapsed_ms"] = elapsed
         else:
             return
 
-    result    = st.session_state.get("recog_last_result", {})
+    result = st.session_state.get("recog_last_result", {})
     pil_image = st.session_state.get("recog_last_image", pil_image)
-    elapsed   = st.session_state.get("recog_elapsed_ms", 0.0)
+    elapsed = st.session_state.get("recog_elapsed_ms", 0.0)
 
-    faces     = result.get("faces", [])
-    n_det     = result.get("num_faces_detected", 0)
-    n_rec     = result.get("num_faces_recognized", 0)
-    inf_ms    = result.get("inference_time_ms", elapsed)
-    img_w     = result.get("image_width", pil_image.width)
-    img_h     = result.get("image_height", pil_image.height)
+    faces = result.get("faces", [])
+    n_det = result.get("num_faces_detected", 0)
+    n_rec = result.get("num_faces_recognized", 0)
+    inf_ms = result.get("inference_time_ms", elapsed)
+    img_w = result.get("image_width", pil_image.width)
+    img_h = result.get("image_height", pil_image.height)
 
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Faces detected",    n_det)
-    m2.metric("Faces recognized",  n_rec)
-    m3.metric("Inference time",    f"{inf_ms:.0f} ms")
-    m4.metric("Image size",        f"{img_w}×{img_h}")
+    m1.metric("Faces detected", n_det)
+    m2.metric("Faces recognized", n_rec)
+    m3.metric("Inference time", f"{inf_ms:.0f} ms")
+    m4.metric("Image size", f"{img_w}×{img_h}")
 
     st.divider()
 
@@ -399,15 +396,15 @@ def _render_recognize_section() -> None:
         else:
             st.markdown(f"**{n_det} face(s) found:**")
             for face in faces:
-                idx    = face.get("face_index", 0)
-                match  = face.get("match", {})
-                attrs  = face.get("attributes") or {}
-                bbox   = face.get("bbox", {})
+                idx = face.get("face_index", 0)
+                match = face.get("match", {})
+                attrs = face.get("attributes") or {}
+                bbox = face.get("bbox", {})
 
-                is_known   = match.get("is_known", False)
-                identity   = match.get("identity_name") or "Unknown"
+                is_known = match.get("is_known", False)
+                identity = match.get("identity_name") or "Unknown"
                 similarity = match.get("similarity", 0.0)
-                det_conf   = bbox.get("confidence", 0.0)
+                det_conf = bbox.get("confidence", 0.0)
 
                 # Colour badge
                 if not is_known:
@@ -436,7 +433,7 @@ def _render_recognize_section() -> None:
 
                     if attrs:
                         st.markdown("**Attributes:**")
-                        age    = attrs.get("age")
+                        age = attrs.get("age")
                         gender = attrs.get("gender")
                         if age is not None:
                             st.markdown(f"- Age: `{age:.0f}` years")
@@ -522,8 +519,7 @@ def _render_register_section() -> None:
         return
     if not consent_check:
         st.error(
-            "You must confirm that you have explicit consent from the person "
-            "being registered."
+            "You must confirm that you have explicit consent from the person " "being registered."
         )
         return
 
@@ -543,9 +539,9 @@ def _render_register_section() -> None:
         st.success(f"✅ {result.get('message', 'Identity registered successfully.')}")
 
         col_a, col_b, col_c = st.columns(3)
-        col_a.metric("Identity name",     result.get("identity_name", name))
-        col_b.metric("Embeddings added",  result.get("embeddings_added", 1))
-        col_c.metric("Total embeddings",  result.get("total_embeddings", 1))
+        col_a.metric("Identity name", result.get("identity_name", name))
+        col_b.metric("Embeddings added", result.get("embeddings_added", 1))
+        col_c.metric("Total embeddings", result.get("total_embeddings", 1))
 
         st.code(
             f"Identity ID: {result.get('identity_id', 'N/A')}",
@@ -596,33 +592,31 @@ def _render_database_section() -> None:
 
     # Apply client-side filter too (in case we loaded cached data)
     if name_filter:
-        nf    = name_filter.lower()
+        nf = name_filter.lower()
         items = [i for i in items if nf in i.get("name", "").lower()]
 
     st.markdown(f"**{total} identit{'y' if total == 1 else 'ies'} registered**")
 
     if not items:
-        st.info(
-            "No identities found. "
-            "Go to the **Register Identity** tab to add the first one."
-        )
+        st.info("No identities found. " "Go to the **Register Identity** tab to add the first one.")
         return
 
     st.divider()
 
     for identity in items:
-        uid       = identity.get("identity_id", "")
-        name      = identity.get("name", "Unknown")
-        num_emb   = identity.get("num_embeddings", "?")
-        created   = identity.get("created_at")
+        uid = identity.get("identity_id", "")
+        name = identity.get("name", "Unknown")
+        num_emb = identity.get("num_embeddings", "?")
+        created = identity.get("created_at")
 
         created_str = ""
         if created:
             try:
                 import datetime  # noqa: PLC0415
-                created_str = datetime.datetime.fromtimestamp(
-                    float(created)
-                ).strftime("%Y-%m-%d %H:%M")
+
+                created_str = datetime.datetime.fromtimestamp(float(created)).strftime(
+                    "%Y-%m-%d %H:%M"
+                )
             except Exception:
                 created_str = str(created)
 
@@ -662,7 +656,7 @@ def _render_database_section() -> None:
                 st.markdown("---")
 
                 confirm_key = f"del_confirm_{uid}"
-                confirmed   = st.checkbox(
+                confirmed = st.checkbox(
                     "Confirm delete",
                     key=confirm_key,
                 )
@@ -698,15 +692,15 @@ def render(api_base_url: str = _DEFAULT_API_URL) -> None:
     st.session_state["api_base_url"] = api_base_url
 
     st.title("🔍 Face Recognition")
-    st.markdown(
-        "Detect, identify, and manage faces using the ArcFace recognition pipeline."
-    )
+    st.markdown("Detect, identify, and manage faces using the ArcFace recognition pipeline.")
 
-    tab_recognize, tab_register, tab_database = st.tabs([
-        _SECTION_RECOGNIZE,
-        _SECTION_REGISTER,
-        _SECTION_DATABASE,
-    ])
+    tab_recognize, tab_register, tab_database = st.tabs(
+        [
+            _SECTION_RECOGNIZE,
+            _SECTION_REGISTER,
+            _SECTION_DATABASE,
+        ]
+    )
 
     with tab_recognize:
         _render_recognize_section()

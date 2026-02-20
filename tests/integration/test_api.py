@@ -24,7 +24,7 @@ import io
 import time
 import uuid
 from typing import Generator, Optional
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import cv2
 import numpy as np
@@ -51,23 +51,26 @@ def _encode_jpeg(image: np.ndarray) -> bytes:
 
 
 def _make_face_box_mock(
-    x1=10.0, y1=10.0, x2=100.0, y2=100.0,
+    x1=10.0,
+    y1=10.0,
+    x2=100.0,
+    y2=100.0,
     confidence=0.95,
     face_index=0,
     with_landmarks=True,
 ):
     """Return a mock FaceBox-like object."""
     fb = MagicMock()
-    fb.x1          = x1
-    fb.y1          = y1
-    fb.x2          = x2
-    fb.y2          = y2
-    fb.confidence  = confidence
-    fb.face_index  = face_index
+    fb.x1 = x1
+    fb.y1 = y1
+    fb.x2 = x2
+    fb.y2 = y2
+    fb.confidence = confidence
+    fb.face_index = face_index
     fb.has_landmarks = with_landmarks
     if with_landmarks:
         fb.landmarks = np.array(
-            [[30., 35.], [70., 35.], [50., 55.], [35., 75.], [65., 75.]],
+            [[30.0, 35.0], [70.0, 35.0], [50.0, 55.0], [35.0, 75.0], [65.0, 75.0]],
             dtype=np.float32,
         )
     else:
@@ -79,10 +82,10 @@ def _make_detection_result_mock(n_faces: int = 1):
     """Return a mock DetectionResult with n_faces."""
     det = MagicMock()
     faces = [_make_face_box_mock(face_index=i) for i in range(n_faces)]
-    det.faces       = faces
-    det.is_empty    = (n_faces == 0)
-    det.best_face   = faces[0] if faces else None
-    det.image_width  = 120
+    det.faces = faces
+    det.is_empty = n_faces == 0
+    det.best_face = faces[0] if faces else None
+    det.image_width = 120
     det.image_height = 120
     det.inference_time_ms = 5.0
     return det
@@ -92,9 +95,9 @@ def _make_embedding_mock():
     """Return a mock FaceEmbedding."""
     emb = MagicMock()
     rng = np.random.default_rng(7)
-    v   = rng.standard_normal(512).astype(np.float32)
-    v  /= np.linalg.norm(v)
-    emb.vector     = v
+    v = rng.standard_normal(512).astype(np.float32)
+    v /= np.linalg.norm(v)
+    emb.vector = v
     emb.face_index = 0
     return emb
 
@@ -102,27 +105,28 @@ def _make_embedding_mock():
 def _make_swap_result_mock(success: bool = True):
     """Return a mock SwapResult."""
     from core.swapper.base_swapper import SwapStatus
+
     sr = MagicMock()
-    sr.success           = success
-    sr.output_image      = _make_bgr_image()
-    sr.status            = SwapStatus.SUCCESS if success else SwapStatus.INFERENCE_ERROR
-    sr.swap_time_ms      = 20.0
+    sr.success = success
+    sr.output_image = _make_bgr_image()
+    sr.status = SwapStatus.SUCCESS if success else SwapStatus.INFERENCE_ERROR
+    sr.swap_time_ms = 20.0
     sr.inference_time_ms = 15.0
-    sr.align_time_ms     = 2.0
-    sr.blend_time_ms     = 3.0
-    sr.error             = None if success else "mock inference error"
-    sr.target_face       = _make_face_box_mock()
+    sr.align_time_ms = 2.0
+    sr.blend_time_ms = 3.0
+    sr.error = None if success else "mock inference error"
+    sr.target_face = _make_face_box_mock()
     return sr
 
 
 def _make_batch_swap_result_mock(n=1, all_success=True):
     """Return a mock BatchSwapResult."""
     bsr = MagicMock()
-    bsr.output_image  = _make_bgr_image()
-    bsr.swap_results  = [_make_swap_result_mock(all_success) for _ in range(n)]
-    bsr.num_swapped   = n if all_success else 0
-    bsr.num_failed    = 0 if all_success else n
-    bsr.all_success   = all_success
+    bsr.output_image = _make_bgr_image()
+    bsr.swap_results = [_make_swap_result_mock(all_success) for _ in range(n)]
+    bsr.num_swapped = n if all_success else 0
+    bsr.num_failed = 0 if all_success else n
+    bsr.all_success = all_success
     bsr.total_time_ms = 25.0
     return bsr
 
@@ -130,10 +134,10 @@ def _make_batch_swap_result_mock(n=1, all_success=True):
 def _make_face_match_mock(is_known: bool = True):
     """Return a mock FaceMatch."""
     m = MagicMock()
-    m.is_known      = is_known
+    m.is_known = is_known
     m.identity_name = "Alice" if is_known else None
-    m.identity_id   = str(uuid.uuid4()) if is_known else None
-    m.similarity    = 0.87 if is_known else 0.22
+    m.identity_id = str(uuid.uuid4()) if is_known else None
+    m.similarity = 0.87 if is_known else 0.22
     return m
 
 
@@ -147,6 +151,7 @@ def app() -> FastAPI:
     mock components to state.
     """
     from api.main import create_app
+
     return create_app()
 
 
@@ -161,10 +166,10 @@ def client(app: FastAPI) -> Generator[TestClient, None, None]:
     """
     # Patch all model-loading routines to prevent disk access
     with (
-        patch("api.main.YOLOFaceDetector",        autospec=False),
-        patch("api.main.InsightFaceRecognizer",   autospec=False),
-        patch("api.main.InSwapper",               autospec=False),
-        patch("api.main.FaceDatabase",            autospec=False),
+        patch("api.main.YOLOFaceDetector", autospec=False),
+        patch("api.main.InsightFaceRecognizer", autospec=False),
+        patch("api.main.InSwapper", autospec=False),
+        patch("api.main.FaceDatabase", autospec=False),
     ):
         with TestClient(app, raise_server_exceptions=True) as c:
             # Attach fresh mocks to app.state for each test
@@ -200,13 +205,13 @@ def _attach_mocks(app: FastAPI) -> None:
 
     # Face database
     face_db = MagicMock()
-    face_db.is_loaded   = True   # face_db doesn't have is_loaded but harmless
+    face_db.is_loaded = True  # face_db doesn't have is_loaded but harmless
     face_db.num_identities = 2
     face_db.search.return_value = [_make_face_match_mock(True)]
     face_db.register.return_value = str(uuid.uuid4())
     face_db.list_identities.return_value = [
         {"identity_id": str(uuid.uuid4()), "name": "Alice", "num_embeddings": 3},
-        {"identity_id": str(uuid.uuid4()), "name": "Bob",   "num_embeddings": 1},
+        {"identity_id": str(uuid.uuid4()), "name": "Bob", "num_embeddings": 1},
     ]
     face_db.get_identity.return_value = MagicMock(
         name="Alice",
@@ -218,6 +223,7 @@ def _attach_mocks(app: FastAPI) -> None:
 
     # Output dir
     import tempfile
+
     app.state.output_dir = tempfile.mkdtemp()
 
 
@@ -314,8 +320,8 @@ class TestRecognizeEndpoint:
         consent: str = "true",
         extra_fields: Optional[dict] = None,
     ):
-        files  = {"image": (filename, image_bytes, "image/jpeg")}
-        data   = {"consent": consent}
+        files = {"image": (filename, image_bytes, "image/jpeg")}
+        data = {"consent": consent}
         if extra_fields:
             data.update(extra_fields)
         return client.post("/api/v1/recognize", files=files, data=data)
@@ -339,14 +345,14 @@ class TestRecognizeEndpoint:
         assert isinstance(data["faces"], list)
 
     def test_recognize_face_has_bbox(self, client, sample_image_bytes):
-        data  = self._post(client, sample_image_bytes).json()
+        data = self._post(client, sample_image_bytes).json()
         faces = data["faces"]
         assert len(faces) > 0
         bbox = faces[0]["bbox"]
         assert all(k in bbox for k in ("x1", "y1", "x2", "y2", "confidence"))
 
     def test_recognize_face_has_match(self, client, sample_image_bytes):
-        data  = self._post(client, sample_image_bytes).json()
+        data = self._post(client, sample_image_bytes).json()
         match = data["faces"][0]["match"]
         assert "is_known" in match
         assert "similarity" in match
@@ -368,13 +374,13 @@ class TestRecognizeEndpoint:
 
     def test_recognize_403_consent_missing(self, client, sample_image_bytes):
         files = {"image": ("t.jpg", sample_image_bytes, "image/jpeg")}
-        resp  = client.post("/api/v1/recognize", files=files, data={})
+        resp = client.post("/api/v1/recognize", files=files, data={})
         # consent defaults to false → 403
         assert resp.status_code == 403
 
     def test_recognize_400_invalid_image(self, client):
         files = {"image": ("bad.jpg", b"not-an-image", "image/jpeg")}
-        resp  = client.post("/api/v1/recognize", files=files, data={"consent": "true"})
+        resp = client.post("/api/v1/recognize", files=files, data={"consent": "true"})
         assert resp.status_code == 400
 
     def test_recognize_no_faces(self, client, app, sample_image_bytes):
@@ -410,13 +416,12 @@ class TestRecognizeEndpoint:
 
     def test_recognize_with_attributes(self, client, app, sample_image_bytes):
         attr_mock = MagicMock()
-        attr_mock.age          = 28.5
-        attr_mock.gender       = "F"
+        attr_mock.age = 28.5
+        attr_mock.gender = "F"
         attr_mock.gender_score = 0.92
         app.state.recognizer.get_attributes.return_value = attr_mock
         data = self._post(
-            client, sample_image_bytes,
-            extra_fields={"return_attributes": "true"}
+            client, sample_image_bytes, extra_fields={"return_attributes": "true"}
         ).json()
         # Attributes may be in response
         assert data["num_faces_detected"] >= 0
@@ -427,7 +432,7 @@ class TestRecognizeEndpoint:
 
     def test_recognize_png_image(self, client, sample_png_bytes):
         files = {"image": ("test.png", sample_png_bytes, "image/png")}
-        resp  = client.post("/api/v1/recognize", files=files, data={"consent": "true"})
+        resp = client.post("/api/v1/recognize", files=files, data={"consent": "true"})
         assert resp.status_code == 200
 
     def test_recognize_multiple_faces(self, client, app, sample_image_bytes):
@@ -449,7 +454,7 @@ class TestRegisterEndpoint:
         extra_fields: Optional[dict] = None,
     ):
         files = {"image": ("face.jpg", image_bytes, "image/jpeg")}
-        data  = {"name": name, "consent": consent}
+        data = {"name": name, "consent": consent}
         if extra_fields:
             data.update(extra_fields)
         return client.post("/api/v1/register", files=files, data=data)
@@ -488,7 +493,7 @@ class TestRegisterEndpoint:
 
     def test_register_400_invalid_image(self, client):
         files = {"image": ("bad.jpg", b"garbage", "image/jpeg")}
-        resp  = client.post(
+        resp = client.post(
             "/api/v1/register",
             files=files,
             data={"name": "Test", "consent": "true"},
@@ -497,7 +502,7 @@ class TestRegisterEndpoint:
 
     def test_register_422_missing_name(self, client, sample_image_bytes):
         files = {"image": ("face.jpg", sample_image_bytes, "image/jpeg")}
-        resp  = client.post(
+        resp = client.post(
             "/api/v1/register",
             files=files,
             data={"consent": "true"},  # name missing
@@ -540,7 +545,7 @@ class TestIdentitiesEndpoints:
         assert isinstance(data["items"], list)
 
     def test_list_identities_items_have_name(self, client):
-        data  = client.get("/api/v1/identities").json()
+        data = client.get("/api/v1/identities").json()
         items = data["items"]
         assert len(items) > 0
         assert "name" in items[0]
@@ -564,24 +569,24 @@ class TestIdentitiesEndpoints:
         app.state.face_database = original
 
     def test_get_identity_200(self, client, app):
-        uid  = str(uuid.uuid4())
+        uid = str(uuid.uuid4())
         resp = client.get(f"/api/v1/identities/{uid}")
         assert resp.status_code == 200
 
     def test_get_identity_returns_name(self, client, app):
-        uid  = str(uuid.uuid4())
+        uid = str(uuid.uuid4())
         data = client.get(f"/api/v1/identities/{uid}").json()
         assert "name" in data
 
     def test_get_identity_404_not_found(self, client, app):
         app.state.face_database.get_identity.side_effect = KeyError("not found")
-        uid  = str(uuid.uuid4())
+        uid = str(uuid.uuid4())
         resp = client.get(f"/api/v1/identities/{uid}")
         assert resp.status_code == 404
         app.state.face_database.get_identity.side_effect = None
 
     def test_delete_identity_200(self, client, app):
-        uid  = str(uuid.uuid4())
+        uid = str(uuid.uuid4())
         resp = client.delete(
             f"/api/v1/identities/{uid}",
             data={"confirm": "true"},
@@ -589,7 +594,7 @@ class TestIdentitiesEndpoints:
         assert resp.status_code == 200
 
     def test_delete_identity_400_no_confirm(self, client, app):
-        uid  = str(uuid.uuid4())
+        uid = str(uuid.uuid4())
         resp = client.delete(
             f"/api/v1/identities/{uid}",
             data={"confirm": "false"},
@@ -598,7 +603,7 @@ class TestIdentitiesEndpoints:
 
     def test_delete_identity_404_not_found(self, client, app):
         app.state.face_database.remove_identity.side_effect = KeyError("not found")
-        uid  = str(uuid.uuid4())
+        uid = str(uuid.uuid4())
         resp = client.delete(
             f"/api/v1/identities/{uid}",
             data={"confirm": "true"},
@@ -607,7 +612,7 @@ class TestIdentitiesEndpoints:
         app.state.face_database.remove_identity.side_effect = None
 
     def test_rename_identity_200(self, client, app):
-        uid  = str(uuid.uuid4())
+        uid = str(uuid.uuid4())
         resp = client.patch(
             f"/api/v1/identities/{uid}",
             data={"new_name": "Charlie"},
@@ -615,7 +620,7 @@ class TestIdentitiesEndpoints:
         assert resp.status_code == 200
 
     def test_rename_identity_renamed_field(self, client, app):
-        uid  = str(uuid.uuid4())
+        uid = str(uuid.uuid4())
         data = client.patch(
             f"/api/v1/identities/{uid}",
             data={"new_name": "Charlie"},
@@ -624,7 +629,7 @@ class TestIdentitiesEndpoints:
 
     def test_rename_identity_404(self, client, app):
         app.state.face_database.rename_identity.side_effect = KeyError("not found")
-        uid  = str(uuid.uuid4())
+        uid = str(uuid.uuid4())
         resp = client.patch(
             f"/api/v1/identities/{uid}",
             data={"new_name": "Charlie"},
@@ -633,7 +638,7 @@ class TestIdentitiesEndpoints:
         app.state.face_database.rename_identity.side_effect = None
 
     def test_rename_identity_slashes_rejected(self, client, app):
-        uid  = str(uuid.uuid4())
+        uid = str(uuid.uuid4())
         resp = client.patch(
             f"/api/v1/identities/{uid}",
             data={"new_name": "../../hack"},
@@ -658,13 +663,12 @@ class TestSwapEndpoint:
             "target_file": ("target.jpg", target_bytes, "image/jpeg"),
         }
         data = {
-            "consent":      consent,
+            "consent": consent,
             "return_base64": return_base64,
         }
         if extra_fields:
             data.update(extra_fields)
         return client.post("/api/v1/swap", files=files, data=data)
-
 
     def test_swap_200_returns_png(self, client, sample_image_bytes):
         resp = self._post_swap(client, sample_image_bytes, sample_image_bytes)
@@ -672,7 +676,7 @@ class TestSwapEndpoint:
         assert "image/png" in resp.headers["content-type"]
 
     def test_swap_response_is_valid_png(self, client, sample_image_bytes):
-        resp  = self._post_swap(client, sample_image_bytes, sample_image_bytes)
+        resp = self._post_swap(client, sample_image_bytes, sample_image_bytes)
         # PNG files start with the PNG magic bytes
         assert resp.content[:4] == b"\x89PNG"
 
@@ -689,20 +693,21 @@ class TestSwapEndpoint:
         resp = self._post_swap(client, sample_image_bytes, sample_image_bytes)
         assert "x-processing-ms" in resp.headers
 
-
     def test_swap_base64_json_200(self, client, sample_image_bytes):
         resp = self._post_swap(
-            client, sample_image_bytes, sample_image_bytes,
+            client,
+            sample_image_bytes,
+            sample_image_bytes,
             return_base64="true",
         )
         assert resp.status_code == 200
         assert "application/json" in resp.headers["content-type"]
 
-    def test_swap_base64_json_has_output_base64(
-        self, client, sample_image_bytes
-    ):
+    def test_swap_base64_json_has_output_base64(self, client, sample_image_bytes):
         data = self._post_swap(
-            client, sample_image_bytes, sample_image_bytes,
+            client,
+            sample_image_bytes,
+            sample_image_bytes,
             return_base64="true",
         ).json()
         assert "output_base64" in data
@@ -713,7 +718,9 @@ class TestSwapEndpoint:
 
     def test_swap_base64_json_has_num_faces_swapped(self, client, sample_image_bytes):
         data = self._post_swap(
-            client, sample_image_bytes, sample_image_bytes,
+            client,
+            sample_image_bytes,
+            sample_image_bytes,
             return_base64="true",
         ).json()
         assert "num_faces_swapped" in data
@@ -721,7 +728,9 @@ class TestSwapEndpoint:
 
     def test_swap_base64_json_has_faces_list(self, client, sample_image_bytes):
         data = self._post_swap(
-            client, sample_image_bytes, sample_image_bytes,
+            client,
+            sample_image_bytes,
+            sample_image_bytes,
             return_base64="true",
         ).json()
         assert "faces" in data
@@ -729,14 +738,18 @@ class TestSwapEndpoint:
 
     def test_swap_base64_json_blend_mode_field(self, client, sample_image_bytes):
         data = self._post_swap(
-            client, sample_image_bytes, sample_image_bytes,
+            client,
+            sample_image_bytes,
+            sample_image_bytes,
             return_base64="true",
         ).json()
         assert "blend_mode" in data
 
     def test_swap_base64_json_enhanced_field(self, client, sample_image_bytes):
         data = self._post_swap(
-            client, sample_image_bytes, sample_image_bytes,
+            client,
+            sample_image_bytes,
+            sample_image_bytes,
             return_base64="true",
         ).json()
         assert "enhanced" in data
@@ -744,23 +757,28 @@ class TestSwapEndpoint:
 
     def test_swap_base64_json_watermarked_field(self, client, sample_image_bytes):
         data = self._post_swap(
-            client, sample_image_bytes, sample_image_bytes,
+            client,
+            sample_image_bytes,
+            sample_image_bytes,
             return_base64="true",
         ).json()
         assert "watermarked" in data
 
     def test_swap_base64_json_total_inference_ms(self, client, sample_image_bytes):
         data = self._post_swap(
-            client, sample_image_bytes, sample_image_bytes,
+            client,
+            sample_image_bytes,
+            sample_image_bytes,
             return_base64="true",
         ).json()
         assert "total_inference_ms" in data
         assert data["total_inference_ms"] >= 0
 
-
     def test_swap_no_consent_returns_4xx(self, client, sample_image_bytes):
         resp = self._post_swap(
-            client, sample_image_bytes, sample_image_bytes,
+            client,
+            sample_image_bytes,
+            sample_image_bytes,
             consent="false",
         )
         assert resp.status_code in (400, 403)
@@ -815,7 +833,6 @@ class TestSwapEndpoint:
         assert resp.status_code == 503
         app.state.detector = original
 
-
     def test_swap_x_enhanced_header(self, client, sample_image_bytes):
         resp = self._post_swap(client, sample_image_bytes, sample_image_bytes)
         assert "x-enhanced" in resp.headers
@@ -828,17 +845,20 @@ class TestSwapEndpoint:
         resp = self._post_swap(client, sample_image_bytes, sample_image_bytes)
         assert "x-request-id" in resp.headers
 
-
     def test_swap_all_faces_mode_200(self, client, app, sample_image_bytes):
         resp = self._post_swap(
-            client, sample_image_bytes, sample_image_bytes,
+            client,
+            sample_image_bytes,
+            sample_image_bytes,
             extra_fields={"swap_all_faces": "true"},
         )
         assert resp.status_code == 200
 
     def test_swap_all_faces_mode_returns_png(self, client, app, sample_image_bytes):
         resp = self._post_swap(
-            client, sample_image_bytes, sample_image_bytes,
+            client,
+            sample_image_bytes,
+            sample_image_bytes,
             extra_fields={"swap_all_faces": "true"},
         )
         assert "image/png" in resp.headers["content-type"]

@@ -22,7 +22,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 from typing import List, Optional
-from unittest.mock import MagicMock, patch, PropertyMock, call
+from unittest.mock import MagicMock, PropertyMock, call, patch
 
 import cv2
 import numpy as np
@@ -48,16 +48,22 @@ def _img(h: int = 128, w: int = 128) -> np.ndarray:
 
 
 def _face_box(
-    x1=20.0, y1=20.0, x2=100.0, y2=100.0,
+    x1=20.0,
+    y1=20.0,
+    x2=100.0,
+    y2=100.0,
     confidence=0.95,
     face_index=0,
 ) -> FaceBox:
     lm = np.array(
-        [[40., 45.], [80., 45.], [60., 65.], [45., 85.], [75., 85.]],
+        [[40.0, 45.0], [80.0, 45.0], [60.0, 65.0], [45.0, 85.0], [75.0, 85.0]],
         dtype=np.float32,
     )
     return FaceBox(
-        x1=x1, y1=y1, x2=x2, y2=y2,
+        x1=x1,
+        y1=y1,
+        x2=x2,
+        y2=y2,
         confidence=confidence,
         face_index=face_index,
         landmarks=lm,
@@ -197,9 +203,9 @@ class TestEnhancementRequest:
 
     def test_repr_contains_image_dimensions(self):
         req = _make_request()
-        r   = repr(req)
-        assert "128" in r   # width
-        assert "128" in r   # height
+        r = repr(req)
+        assert "128" in r  # width
+        assert "128" in r  # height
 
     def test_repr_contains_upscale(self):
         req = EnhancementRequest(image=_img(), upscale=4)
@@ -221,7 +227,7 @@ class TestEnhancementResult:
 
     def test_output_image_stored(self):
         img = _img()
-        r   = EnhancementResult(
+        r = EnhancementResult(
             output_image=img,
             status=EnhancementStatus.SUCCESS,
             backend=EnhancerBackend.GFPGAN,
@@ -289,12 +295,12 @@ class TestEnhancementResult:
         assert r.backend == EnhancerBackend.GFPGAN
 
     def test_repr_success_contains_SUCCESS(self):
-        r   = _make_result(success=True)
+        r = _make_result(success=True)
         rep = repr(r)
         assert "SUCCESS" in rep or "success" in rep.lower()
 
     def test_repr_failure_contains_status(self):
-        r   = _make_result(success=False)
+        r = _make_result(success=False)
         rep = repr(r)
         assert "inference_error" in rep or "INFERENCE_ERROR" in rep.lower()
 
@@ -417,18 +423,16 @@ class TestFindCenterFace:
 
     def test_picks_face_closest_to_center(self):
         # Face A is centred; face B is far to the right
-        fa = FaceBox(x1=280, y1=200, x2=360, y2=280,
-                     confidence=0.9, face_index=0)
-        fb = FaceBox(x1=580, y1=200, x2=640, y2=280,
-                     confidence=0.9, face_index=1)
+        fa = FaceBox(x1=280, y1=200, x2=360, y2=280, confidence=0.9, face_index=0)
+        fb = FaceBox(x1=580, y1=200, x2=640, y2=280, confidence=0.9, face_index=1)
         result = find_center_face([fa, fb], 640, 480)
         assert result is fa
 
     def test_picks_center_face_with_three_candidates(self):
         # Left / centre / right
-        left   = FaceBox(x1=0,   y1=200, x2=60,  y2=280, confidence=0.9, face_index=0)
+        left = FaceBox(x1=0, y1=200, x2=60, y2=280, confidence=0.9, face_index=0)
         centre = FaceBox(x1=300, y1=200, x2=360, y2=280, confidence=0.9, face_index=1)
-        right  = FaceBox(x1=580, y1=200, x2=640, y2=280, confidence=0.9, face_index=2)
+        right = FaceBox(x1=580, y1=200, x2=640, y2=280, confidence=0.9, face_index=2)
         result = find_center_face([left, centre, right], 640, 480)
         assert result is centre
 
@@ -438,10 +442,8 @@ class TestFindCenterFace:
 
     def test_image_center_calculation_uses_passed_dimensions(self):
         # Place face at (0, 0)→(10, 10) — closer to top-left than to (1000, 1000)
-        far_face  = FaceBox(x1=980, y1=980, x2=1000, y2=1000,
-                            confidence=0.9, face_index=0)
-        near_face = FaceBox(x1=0,   y1=0,   x2=10,   y2=10,
-                            confidence=0.9, face_index=1)
+        far_face = FaceBox(x1=980, y1=980, x2=1000, y2=1000, confidence=0.9, face_index=0)
+        near_face = FaceBox(x1=0, y1=0, x2=10, y2=10, confidence=0.9, face_index=1)
         # Image 20×20: center = (10, 10); near_face center=(5,5), far=(990,990)
         result = find_center_face([far_face, near_face], 20, 20)
         assert result is near_face
@@ -491,7 +493,7 @@ class TestBaseEnhancer:
 
     def test_reset_stats_clears_counters(self):
         enh = _StubEnhancer()
-        enh._total_calls     = 5
+        enh._total_calls = 5
         enh._total_inference = 200.0
         enh.reset_stats()
         assert enh.total_calls == 0
@@ -500,7 +502,7 @@ class TestBaseEnhancer:
     def test_enhance_image_convenience_wrapper(self):
         enh = _StubEnhancer()
         enh.load_model()
-        img    = _img()
+        img = _img()
         result = enh.enhance_image(img)
         assert result.success is True
 
@@ -523,7 +525,7 @@ class TestBaseEnhancer:
     def test_require_loaded_ok_when_loaded(self):
         enh = _StubEnhancer()
         enh.load_model()
-        enh._require_loaded()   # should not raise
+        enh._require_loaded()  # should not raise
 
     def test_validate_image_raises_on_none(self):
         enh = _StubEnhancer()
@@ -547,11 +549,11 @@ class TestBaseEnhancer:
 
     def test_validate_image_ok_for_valid(self):
         enh = _StubEnhancer()
-        enh._validate_image(_img())   # should not raise
+        enh._validate_image(_img())  # should not raise
 
     def test_resolve_device_auto_returns_string(self):
         enh = _StubEnhancer()
-        d   = enh._resolve_device()
+        d = enh._resolve_device()
         assert d in ("cpu", "cuda") or d.startswith("cuda:")
 
     def test_resolve_device_explicit_cpu(self):
@@ -561,8 +563,8 @@ class TestBaseEnhancer:
 
     def test_make_failed_result_has_correct_status(self):
         enh = _StubEnhancer()
-        t0  = enh._timer()
-        r   = enh._make_failed_result(
+        t0 = enh._timer()
+        r = enh._make_failed_result(
             EnhancementStatus.INFERENCE_ERROR,
             _img(),
             "test error",
@@ -572,7 +574,7 @@ class TestBaseEnhancer:
 
     def test_make_failed_result_has_error_message(self):
         enh = _StubEnhancer()
-        r   = enh._make_failed_result(
+        r = enh._make_failed_result(
             EnhancementStatus.INFERENCE_ERROR,
             _img(),
             "my error",
@@ -583,7 +585,7 @@ class TestBaseEnhancer:
     def test_make_failed_result_returns_original_image(self):
         enh = _StubEnhancer()
         img = _img()
-        r   = enh._make_failed_result(
+        r = enh._make_failed_result(
             EnhancementStatus.INFERENCE_ERROR,
             img,
             "err",
@@ -597,7 +599,7 @@ class TestBaseEnhancer:
 
     def test_timer_increases(self):
         enh = _StubEnhancer()
-        t0  = enh._timer()
+        t0 = enh._timer()
         time.sleep(0.005)
         assert enh._timer() > t0
 
@@ -625,7 +627,7 @@ class TestBaseEnhancer:
 
     def test_enhance_before_load_returns_not_loaded_status(self):
         enh = _StubEnhancer()
-        r   = enh.enhance(_make_request())
+        r = enh.enhance(_make_request())
         assert r.status == EnhancementStatus.MODEL_NOT_LOADED
 
 
@@ -635,12 +637,14 @@ class TestGFPGANEnhancerConstruction:
 
     def _make(self, **kwargs):
         from core.enhancer.gfpgan_enhancer import GFPGANEnhancer
+
         defaults = dict(model_path="models/GFPGANv1.4.pth")
         defaults.update(kwargs)
         return GFPGANEnhancer(**defaults)
 
     def test_default_model_path(self):
         from core.enhancer.gfpgan_enhancer import GFPGANEnhancer
+
         enh = GFPGANEnhancer()
         assert "GFPGANv1.4" in enh.model_path
 
@@ -699,6 +703,7 @@ class TestGFPGANEnhancerLoadModel:
 
     def _make(self, **kwargs):
         from core.enhancer.gfpgan_enhancer import GFPGANEnhancer
+
         defaults = dict(model_path="models/GFPGANv1.4.pth")
         defaults.update(kwargs)
         return GFPGANEnhancer(**defaults)
@@ -731,9 +736,10 @@ class TestGFPGANEnhancerEnhance:
 
     def _make_loaded(self, **kwargs):
         from core.enhancer.gfpgan_enhancer import GFPGANEnhancer
+
         enh = GFPGANEnhancer(model_path="models/GFPGANv1.4.pth", **kwargs)
         # Manually inject a mock restorer so we skip real load_model
-        enh._restorer  = MagicMock()
+        enh._restorer = MagicMock()
         enh._is_loaded = True
         return enh
 
@@ -744,8 +750,8 @@ class TestGFPGANEnhancerEnhance:
             restored_faces = [_img(128, 128)]
         enh._restorer.enhance.return_value = (
             [_img(128, 128)],  # cropped_faces
-            restored_faces,    # restored_faces
-            output_img,        # output_img
+            restored_faces,  # restored_faces
+            output_img,  # output_img
         )
 
     def test_returns_enhancement_result(self):
@@ -786,14 +792,15 @@ class TestGFPGANEnhancerEnhance:
 
     def test_not_loaded_returns_model_not_loaded(self):
         from core.enhancer.gfpgan_enhancer import GFPGANEnhancer
+
         enh = GFPGANEnhancer(model_path="models/GFPGANv1.4.pth")
-        r   = enh.enhance(_make_request())
+        r = enh.enhance(_make_request())
         assert r.status == EnhancementStatus.MODEL_NOT_LOADED
 
     def test_invalid_image_returns_invalid_input(self):
         enh = self._make_loaded()
         req = EnhancementRequest(image=np.zeros((64, 64), dtype=np.uint8))  # 2-D, not BGR
-        r   = enh.enhance(req)
+        r = enh.enhance(req)
         assert r.status == EnhancementStatus.INVALID_INPUT
 
     def test_no_faces_returns_no_face_detected(self):
@@ -819,7 +826,7 @@ class TestGFPGANEnhancerEnhance:
         enh = self._make_loaded()
         enh._restorer.enhance.side_effect = RuntimeError("crash")
         img = _img()
-        r   = enh.enhance(EnhancementRequest(image=img))
+        r = enh.enhance(EnhancementRequest(image=img))
         assert r.output_image is img
 
     def test_total_calls_incremented(self):
@@ -854,7 +861,7 @@ class TestGFPGANEnhancerEnhance:
         enh._restorer.enhance.return_value = (
             [_img()],  # cropped_faces
             [_img()],  # restored_faces
-            None,      # output_img = None
+            None,  # output_img = None
         )
         r = enh.enhance(_make_request())
         # Should not crash; output_image should be an ndarray
@@ -867,8 +874,9 @@ class TestGFPGANEnhancerReleaseRepr:
 
     def _make_loaded(self):
         from core.enhancer.gfpgan_enhancer import GFPGANEnhancer
+
         enh = GFPGANEnhancer(model_path="models/GFPGANv1.4.pth")
-        enh._restorer  = MagicMock()
+        enh._restorer = MagicMock()
         enh._is_loaded = True
         return enh
 
@@ -888,11 +896,13 @@ class TestGFPGANEnhancerReleaseRepr:
 
     def test_repr_not_loaded(self):
         from core.enhancer.gfpgan_enhancer import GFPGANEnhancer
+
         enh = GFPGANEnhancer()
         assert "not loaded" in repr(enh)
 
     def test_repr_contains_upscale(self):
         from core.enhancer.gfpgan_enhancer import GFPGANEnhancer
+
         enh = GFPGANEnhancer(upscale=4)
         assert "4" in repr(enh)
 
@@ -907,12 +917,14 @@ class TestCodeFormerEnhancerConstruction:
 
     def _make(self, **kwargs):
         from core.enhancer.codeformer_enhancer import CodeFormerEnhancer
+
         defaults = dict(model_path="models/codeformer.pth")
         defaults.update(kwargs)
         return CodeFormerEnhancer(**defaults)
 
     def test_default_model_path(self):
         from core.enhancer.codeformer_enhancer import CodeFormerEnhancer
+
         enh = CodeFormerEnhancer()
         assert "codeformer" in enh.model_path.lower()
 
@@ -971,6 +983,7 @@ class TestCodeFormerEnhancerLoadModel:
 
     def _make(self, **kwargs):
         from core.enhancer.codeformer_enhancer import CodeFormerEnhancer
+
         defaults = dict(model_path="models/codeformer.pth")
         defaults.update(kwargs)
         return CodeFormerEnhancer(**defaults)
@@ -995,6 +1008,7 @@ class TestCodeFormerEnhancerEnhance:
 
     def _make_loaded(self, **kwargs):
         from core.enhancer.codeformer_enhancer import CodeFormerEnhancer
+
         enh = CodeFormerEnhancer(model_path="models/codeformer.pth", **kwargs)
         enh._is_loaded = True
 
@@ -1016,24 +1030,26 @@ class TestCodeFormerEnhancerEnhance:
     def _setup_torch_mocks(self):
         """Return a context manager that patches torch for CodeFormer inference."""
         import sys
-        torch_mock  = MagicMock()
+
+        torch_mock = MagicMock()
         tensor_mock = MagicMock()
         tensor_mock.__getitem__ = MagicMock(return_value=MagicMock())
         torch_mock.no_grad.return_value.__enter__ = MagicMock(return_value=None)
-        torch_mock.no_grad.return_value.__exit__  = MagicMock(return_value=False)
+        torch_mock.no_grad.return_value.__exit__ = MagicMock(return_value=False)
         torch_mock.device.return_value = "cpu"
         return patch.dict("sys.modules", {"torch": torch_mock})
 
     def test_not_loaded_returns_model_not_loaded(self):
         from core.enhancer.codeformer_enhancer import CodeFormerEnhancer
+
         enh = CodeFormerEnhancer(model_path="models/codeformer.pth")
-        r   = enh.enhance(_make_request())
+        r = enh.enhance(_make_request())
         assert r.status == EnhancementStatus.MODEL_NOT_LOADED
 
     def test_invalid_image_returns_invalid_input(self):
         enh = self._make_loaded()
         req = EnhancementRequest(image=np.zeros((64, 64), dtype=np.uint8))
-        r   = enh.enhance(req)
+        r = enh.enhance(req)
         assert r.status == EnhancementStatus.INVALID_INPUT
 
     def test_no_cropped_faces_returns_no_face_detected(self):
@@ -1088,10 +1104,11 @@ class TestCodeFormerEnhancerReleaseRepr:
 
     def _make_loaded(self):
         from core.enhancer.codeformer_enhancer import CodeFormerEnhancer
+
         enh = CodeFormerEnhancer(model_path="models/codeformer.pth")
         enh._codeformer_net = MagicMock()
-        enh._face_helper    = MagicMock()
-        enh._is_loaded      = True
+        enh._face_helper = MagicMock()
+        enh._is_loaded = True
         return enh
 
     def test_release_clears_net(self):
@@ -1115,10 +1132,12 @@ class TestCodeFormerEnhancerReleaseRepr:
 
     def test_repr_not_loaded(self):
         from core.enhancer.codeformer_enhancer import CodeFormerEnhancer
+
         enh = CodeFormerEnhancer()
         assert "not loaded" in repr(enh)
 
     def test_repr_contains_fidelity(self):
         from core.enhancer.codeformer_enhancer import CodeFormerEnhancer
+
         enh = CodeFormerEnhancer(fidelity_weight=0.7)
         assert "0.7" in repr(enh)

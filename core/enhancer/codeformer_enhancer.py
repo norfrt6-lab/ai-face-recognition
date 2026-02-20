@@ -100,12 +100,12 @@ class CodeFormerEnhancer(BaseEnhancer):
             device=device,
         )
         self.fidelity_weight = float(fidelity_weight)
-        self.bg_enhance      = bool(bg_enhance)
-        self.bg_upsampler    = bg_upsampler
+        self.bg_enhance = bool(bg_enhance)
+        self.bg_upsampler = bg_upsampler
 
         # Internal CodeFormer net (set by load_model)
         self._codeformer_net = None
-        self._face_helper    = None
+        self._face_helper = None
         self._bg_upsampler_obj = None
 
     # ------------------------------------------------------------------
@@ -157,11 +157,7 @@ class CodeFormerEnhancer(BaseEnhancer):
                 weights_only=True,
             )
             # Checkpoint may be nested under 'params_ema' or 'params'
-            state_dict = (
-                checkpoint.get("params_ema")
-                or checkpoint.get("params")
-                or checkpoint
-            )
+            state_dict = checkpoint.get("params_ema") or checkpoint.get("params") or checkpoint
             net.load_state_dict(state_dict, strict=False)
             net.eval()
 
@@ -187,9 +183,7 @@ class CodeFormerEnhancer(BaseEnhancer):
             )
 
         except Exception as exc:
-            raise RuntimeError(
-                f"Failed to load CodeFormer from {self.model_path}: {exc}"
-            ) from exc
+            raise RuntimeError(f"Failed to load CodeFormer from {self.model_path}: {exc}") from exc
 
     # ------------------------------------------------------------------
     # BaseEnhancer interface — enhance
@@ -228,7 +222,7 @@ class CodeFormerEnhancer(BaseEnhancer):
             )
 
         fidelity = request.fidelity_weight
-        upscale  = request.upscale if request.upscale else self.upscale
+        upscale = request.upscale if request.upscale else self.upscale
 
         try:
             import torch  # noqa: PLC0415
@@ -254,7 +248,7 @@ class CodeFormerEnhancer(BaseEnhancer):
                     t0,
                 )
 
-            t_inf  = self._timer()
+            t_inf = self._timer()
             face_crops: List[np.ndarray] = []
 
             for idx, cropped_face in enumerate(helper.cropped_faces):
@@ -277,9 +271,7 @@ class CodeFormerEnhancer(BaseEnhancer):
             if self.bg_enhance and self._bg_upsampler_obj is not None:
                 helper.get_inverse_affine(None)
                 output_image = helper.paste_faces_to_input_image(
-                    upsample_img=self._bg_upsampler_obj.enhance(
-                        request.image, outscale=upscale
-                    )[0],
+                    upsample_img=self._bg_upsampler_obj.enhance(request.image, outscale=upscale)[0],
                 )
             elif request.paste_back:
                 helper.get_inverse_affine(None)
@@ -306,10 +298,10 @@ class CodeFormerEnhancer(BaseEnhancer):
             )
 
         with self._stats_lock:
-            self._total_calls     += 1
+            self._total_calls += 1
             self._total_inference += inference_time
         num_enhanced = len(face_crops)
-        total_time   = self._timer() - t0
+        total_time = self._timer() - t0
 
         logger.debug(
             f"CodeFormer | faces={num_enhanced} | "
@@ -335,8 +327,8 @@ class CodeFormerEnhancer(BaseEnhancer):
 
     def release(self) -> None:
         """Free the model and face helper from GPU/CPU memory."""
-        self._codeformer_net   = None
-        self._face_helper      = None
+        self._codeformer_net = None
+        self._face_helper = None
         self._bg_upsampler_obj = None
         super().release()
         logger.info("CodeFormerEnhancer released.")
@@ -364,7 +356,7 @@ class CodeFormerEnhancer(BaseEnhancer):
         rgb = cv2.cvtColor(face_bgr, cv2.COLOR_BGR2RGB)
         # HWC → CHW, [0, 255] → [-1, 1]
         tensor = (rgb.astype(np.float32) / 255.0 - 0.5) / 0.5
-        tensor = tensor.transpose(2, 0, 1)            # CHW
+        tensor = tensor.transpose(2, 0, 1)  # CHW
         tensor = torch.from_numpy(tensor).unsqueeze(0)  # NCHW
         return tensor.to(device)
 

@@ -113,10 +113,14 @@ def _probe_audio(path: Path) -> bool:
         result = subprocess.run(
             [
                 "ffprobe",
-                "-v", "error",
-                "-select_streams", "a:0",
-                "-show_entries", "stream=codec_type",
-                "-of", "default=noprint_wrappers=1:nokey=1",
+                "-v",
+                "error",
+                "-select_streams",
+                "a:0",
+                "-show_entries",
+                "stream=codec_type",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
                 str(path),
             ],
             capture_output=True,
@@ -465,7 +469,9 @@ def frames_to_video(
         size = (w, h)
 
     with VideoWriter(output_path, fps=fps, size=size) as vw:
-        for fpath in tqdm(frame_paths, desc="Writing video", unit="frame", disable=not show_progress):
+        for fpath in tqdm(
+            frame_paths, desc="Writing video", unit="frame", disable=not show_progress
+        ):
             frame = cv2.imread(str(fpath))
             if frame is None:
                 logger.warning(f"Skipping unreadable frame: {fpath}")
@@ -500,10 +506,12 @@ def extract_audio(video_path: str | Path, audio_out: str | Path) -> Optional[Pat
         subprocess.run(
             [
                 "ffmpeg",
-                "-y",               # overwrite output
-                "-i", str(video_path),
-                "-vn",              # no video
-                "-acodec", "copy",
+                "-y",  # overwrite output
+                "-i",
+                str(video_path),
+                "-vn",  # no video
+                "-acodec",
+                "copy",
                 str(audio_out),
             ],
             check=True,
@@ -546,12 +554,18 @@ def merge_audio_video(
             [
                 "ffmpeg",
                 "-y",
-                "-i", str(video_path),
-                "-i", str(audio_path),
-                "-c:v", "copy",
-                "-c:a", "aac",
-                "-map", "0:v:0",
-                "-map", "1:a:0",
+                "-i",
+                str(video_path),
+                "-i",
+                str(audio_path),
+                "-c:v",
+                "copy",
+                "-c:a",
+                "aac",
+                "-map",
+                "0:v:0",
+                "-map",
+                "1:a:0",
                 "-shortest",
                 str(output_path),
             ],
@@ -574,7 +588,7 @@ def merge_audio_video(
 def process_video(
     input_path: str | Path,
     output_path: str | Path,
-    frame_processor,            # Callable[[np.ndarray], np.ndarray]
+    frame_processor,  # Callable[[np.ndarray], np.ndarray]
     *,
     skip_frames: int = 0,
     max_frames: Optional[int] = None,

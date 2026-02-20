@@ -24,15 +24,22 @@ import numpy as np
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse, Response
 
-from api.schemas.requests import BlendModeSchema, EnhancerBackendSchema, SwapRequest as SwapRequestSchema, swap_form_dep
+from api.metrics import SWAP_FACE_COUNT
+from api.schemas.requests import (
+    BlendModeSchema,
+    EnhancerBackendSchema,
+)
+from api.schemas.requests import SwapRequest as SwapRequestSchema
+from api.schemas.requests import (
+    swap_form_dep,
+)
 from api.schemas.responses import (
     BoundingBox,
     ErrorResponse,
-    SwapResponse,
     SwappedFaceInfo,
+    SwapResponse,
     SwapTimingBreakdown,
 )
-from api.metrics import SWAP_FACE_COUNT
 from utils.circuit_breaker import CircuitBreaker, CircuitOpenError
 from utils.logger import get_logger
 
@@ -51,6 +58,7 @@ def _get_upload_limits() -> tuple[int, int, int]:
     """Return (max_bytes, max_dim, min_dim) from settings or defaults."""
     try:
         from config.settings import settings  # noqa: PLC0415
+
         return (
             settings.api.max_upload_bytes,
             settings.api.max_image_dimension,
@@ -125,9 +133,10 @@ def _encode_image_bytes(image: np.ndarray, fmt: str = ".png") -> bytes:
 def _blend_mode_to_core(mode: BlendModeSchema):
     """Convert API BlendModeSchema to core BlendMode enum."""
     from core.swapper.base_swapper import BlendMode  # noqa: PLC0415
+
     mapping = {
-        BlendModeSchema.alpha:        BlendMode.ALPHA,
-        BlendModeSchema.poisson:      BlendMode.POISSON,
+        BlendModeSchema.alpha: BlendMode.ALPHA,
+        BlendModeSchema.poisson: BlendMode.POISSON,
         BlendModeSchema.masked_alpha: BlendMode.MASKED_ALPHA,
     }
     return mapping.get(mode, BlendMode.POISSON)
@@ -170,21 +179,24 @@ def _save_output(image: np.ndarray, output_dir: Path, request_id: str) -> str:
         200: {
             "description": "Swapped image (PNG) or JSON with base64 payload.",
             "content": {
-                "image/png":        {"schema": {"type": "string", "format": "binary"}},
+                "image/png": {"schema": {"type": "string", "format": "binary"}},
                 "application/json": {"schema": SwapResponse.model_json_schema()},
             },
         },
-        400: {"model": ErrorResponse, "description": "Bad request (validation / no face detected)."},
+        400: {
+            "model": ErrorResponse,
+            "description": "Bad request (validation / no face detected).",
+        },
         422: {"description": "Missing or invalid form fields."},
         503: {"model": ErrorResponse, "description": "Pipeline components not ready."},
     },
 )
 async def swap_faces(
-    request:         Request,
-    source_file:     UploadFile         = File(...,  description="Source image — the donor identity."),
-    target_file:     UploadFile         = File(...,  description="Target image — the scene to modify."),
-    params:          SwapRequestSchema  = Depends(swap_form_dep),
-    return_base64:   bool               = Form(default=False),
+    request: Request,
+    source_file: UploadFile = File(..., description="Source image — the donor identity."),
+    target_file: UploadFile = File(..., description="Target image — the scene to modify."),
+    params: SwapRequestSchema = Depends(swap_form_dep),
+    return_base64: bool = Form(default=False),
 ) -> Response:
     """
     Perform a face swap between *source_file* and *target_file*.
@@ -195,20 +207,20 @@ async def swap_faces(
     Returns:
         PNG image response (default) or ``SwapResponse`` JSON.
     """
-    t_start    = time.perf_counter()
+    t_start = time.perf_counter()
     request_id = str(uuid.uuid4())
 
     # Unpack validated params
-    blend_mode       = params.blend_mode.value
-    blend_alpha      = params.blend_alpha
-    mask_feather     = params.mask_feather
-    swap_all_faces   = params.swap_all_faces
-    max_faces        = params.max_faces
+    blend_mode = params.blend_mode.value
+    blend_alpha = params.blend_alpha
+    mask_feather = params.mask_feather
+    swap_all_faces = params.swap_all_faces
+    max_faces = params.max_faces
     source_face_index = params.source_face_index
     target_face_index = params.target_face_index
-    enhance          = params.enhance
+    enhance = params.enhance
     enhancer_fidelity = params.enhancer_fidelity
-    watermark        = params.watermark
+    watermark = params.watermark
 
     logger.info(
         f"[{request_id[:8]}] POST /swap | "
@@ -267,7 +279,7 @@ async def swap_faces(
         )
 
     # Pick source face by index (clamp to valid range)
-    src_idx  = min(source_face_index, len(source_detection.faces) - 1)
+    src_idx = min(source_face_index, len(source_detection.faces) - 1)
     src_face = source_detection.faces[src_idx]
 
     try:
@@ -280,7 +292,9 @@ async def swap_faces(
             timeout=_INFERENCE_TIMEOUT,
         )
     except asyncio.TimeoutError:
-        logger.error(f"[{request_id[:8]}] Embedding extraction timed out after {_INFERENCE_TIMEOUT}s")
+        logger.error(
+            f"[{request_id[:8]}] Embedding extraction timed out after {_INFERENCE_TIMEOUT}s"
+        )
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail=f"Embedding extraction timed out after {_INFERENCE_TIMEOUT:.0f}s.",
@@ -350,11 +364,12 @@ async def swap_faces(
                 ),
                 timeout=_INFERENCE_TIMEOUT,
             )
-            output_image  = batch_result.output_image
-            swap_results  = batch_result.swap_results
+            output_image = batch_result.output_image
+            swap_results = batch_result.swap_results
         else:
             from core.swapper.base_swapper import SwapRequest as CoreSwapRequest  # noqa: PLC0415
-            tgt_idx  = min(target_face_index, len(target_detection.faces) - 1)
+
+            tgt_idx = min(target_face_index, len(target_detection.faces) - 1)
             tgt_face = target_detection.faces[tgt_idx]
 
             swap_req = CoreSwapRequest(
@@ -398,6 +413,7 @@ async def swap_faces(
     if enhance and enhancer_obj is not None and getattr(enhancer_obj, "is_loaded", False):
         try:
             from core.enhancer.base_enhancer import EnhancementRequest  # noqa: PLC0415
+
             enh_req = EnhancementRequest(
                 image=output_image,
                 fidelity_weight=enhancer_fidelity,
@@ -410,33 +426,33 @@ async def swap_faces(
             )
             if enh_result.success:
                 output_image = enh_result.output_image
-                enhanced     = True
+                enhanced = True
             else:
-                logger.warning(
-                    f"[{request_id[:8]}] Enhancement failed: {enh_result.error}"
-                )
+                logger.warning(f"[{request_id[:8]}] Enhancement failed: {enh_result.error}")
         except Exception as exc:
             logger.warning(f"[{request_id[:8]}] Enhancement error (skipped): {exc}")
     elif enhance and enhancer_obj is None:
-        logger.warning(
-            f"[{request_id[:8]}] enhance=True but no enhancer loaded — skipping."
-        )
+        logger.warning(f"[{request_id[:8]}] enhance=True but no enhancer loaded — skipping.")
 
     watermarked = False
     if watermark:
         try:
             output_image = output_image.copy()
-            font   = cv2.FONT_HERSHEY_SIMPLEX
-            h, w   = output_image.shape[:2]
-            scale  = max(0.4, min(w, h) / 800.0)
-            thick  = max(1, int(scale * 1.5))
-            text   = "AI GENERATED"
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            h, w = output_image.shape[:2]
+            scale = max(0.4, min(w, h) / 800.0)
+            thick = max(1, int(scale * 1.5))
+            text = "AI GENERATED"
             (tw, th), _ = cv2.getTextSize(text, font, scale, thick)
             margin = int(min(w, h) * 0.02)
             x = w - tw - margin
             y = h - margin
-            cv2.putText(output_image, text, (x + 1, y + 1), font, scale, (0, 0, 0), thick + 1, cv2.LINE_AA)
-            cv2.putText(output_image, text, (x, y), font, scale, (255, 255, 255), thick, cv2.LINE_AA)
+            cv2.putText(
+                output_image, text, (x + 1, y + 1), font, scale, (0, 0, 0), thick + 1, cv2.LINE_AA
+            )
+            cv2.putText(
+                output_image, text, (x, y), font, scale, (255, 255, 255), thick, cv2.LINE_AA
+            )
             watermarked = True
         except Exception as exc:
             logger.warning(f"[{request_id[:8]}] Watermark failed: {exc}")
@@ -448,7 +464,7 @@ async def swap_faces(
     except Exception as exc:
         logger.warning(f"[{request_id[:8]}] Could not save output: {exc}")
 
-    total_ms   = (time.perf_counter() - t_start) * 1000.0
+    total_ms = (time.perf_counter() - t_start) * 1000.0
     faces_info = []
     for sr in swap_results:
         fb = sr.target_face
@@ -475,7 +491,7 @@ async def swap_faces(
         )
 
     num_swapped = sum(1 for sr in swap_results if sr.success)
-    num_failed  = len(swap_results) - num_swapped
+    num_failed = len(swap_results) - num_swapped
     SWAP_FACE_COUNT.labels(status="success").inc(num_swapped)
     SWAP_FACE_COUNT.labels(status="failed").inc(num_failed)
 
@@ -488,7 +504,7 @@ async def swap_faces(
 
     if return_base64:
         img_bytes = _encode_image_bytes(output_image, ".png")
-        b64_str   = base64.b64encode(img_bytes).decode("utf-8")
+        b64_str = base64.b64encode(img_bytes).decode("utf-8")
 
         return JSONResponse(
             content=SwapResponse(
@@ -510,11 +526,11 @@ async def swap_faces(
         content=img_bytes,
         media_type="image/png",
         headers={
-            "X-Request-ID":     request_id,
-            "X-Faces-Swapped":  str(num_swapped),
-            "X-Processing-Ms":  f"{total_ms:.1f}",
-            "X-Enhanced":       str(enhanced).lower(),
-            "X-Watermarked":    str(watermarked).lower(),
+            "X-Request-ID": request_id,
+            "X-Faces-Swapped": str(num_swapped),
+            "X-Processing-Ms": f"{total_ms:.1f}",
+            "X-Enhanced": str(enhanced).lower(),
+            "X-Watermarked": str(watermarked).lower(),
             "Content-Disposition": f'attachment; filename="swap_{request_id[:8]}.png"',
         },
     )

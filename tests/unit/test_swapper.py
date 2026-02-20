@@ -17,13 +17,13 @@ from __future__ import annotations
 import time
 from pathlib import Path
 from typing import List, Optional
-from unittest.mock import MagicMock, patch, PropertyMock, call
+from unittest.mock import MagicMock, PropertyMock, call, patch
 
 import cv2
 import numpy as np
 import pytest
 
-from core.detector.base_detector import FaceBox, DetectionResult
+from core.detector.base_detector import DetectionResult, FaceBox
 from core.recognizer.base_recognizer import FaceEmbedding
 from core.swapper.base_swapper import (
     BaseSwapper,
@@ -57,7 +57,10 @@ def _rand_vec(dim: int = 512) -> np.ndarray:
 
 
 def _make_face_box(
-    x1=100, y1=80, x2=300, y2=320,
+    x1=100,
+    y1=80,
+    x2=300,
+    y2=320,
     confidence=0.92,
     face_index=0,
     with_landmarks=False,
@@ -75,7 +78,10 @@ def _make_face_box(
             dtype=np.float32,
         )
     return FaceBox(
-        x1=x1, y1=y1, x2=x2, y2=y2,
+        x1=x1,
+        y1=y1,
+        x2=x2,
+        y2=y2,
         confidence=confidence,
         face_index=face_index,
         landmarks=lm,
@@ -126,7 +132,7 @@ def _make_mock_session(
     out0 = MagicMock()
     out0.name = output_name
 
-    session.get_inputs.return_value  = [inp0, inp1]
+    session.get_inputs.return_value = [inp0, inp1]
     session.get_outputs.return_value = [out0]
 
     # Synthesise a random (1, 3, 128, 128) float32 output in [-1, 1]
@@ -153,7 +159,8 @@ def _load_inswapper(model_path: str = "models/inswapper_128.onnx") -> InSwapper:
         mock_ort.GraphOptimizationLevel.ORT_ENABLE_ALL = 99
         mock_ort.InferenceSession.return_value = mock_session
         mock_ort.get_available_providers.return_value = [
-            "CUDAExecutionProvider", "CPUExecutionProvider"
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider",
         ]
         # Patch _extract_emap so we skip onnx file parsing
         with patch.object(swapper, "_extract_emap", return_value=None):
@@ -270,11 +277,13 @@ class TestBatchSwapResult:
     def _make_batch(self, statuses: list) -> BatchSwapResult:
         results = []
         for s in statuses:
-            results.append(SwapResult(
-                output_image=_rand_image(64, 64),
-                status=s,
-                target_face=_make_face_box(),
-            ))
+            results.append(
+                SwapResult(
+                    output_image=_rand_image(64, 64),
+                    status=s,
+                    target_face=_make_face_box(),
+                )
+            )
         return BatchSwapResult(
             output_image=_rand_image(),
             swap_results=results,
@@ -343,7 +352,7 @@ class TestGetReferencePoints:
 class TestEstimateNorm:
     def _make_landmarks(self) -> np.ndarray:
         return np.array(
-            [[150., 140.], [250., 140.], [200., 200.], [160., 270.], [240., 270.]],
+            [[150.0, 140.0], [250.0, 140.0], [200.0, 200.0], [160.0, 270.0], [240.0, 270.0]],
             dtype=np.float32,
         )
 
@@ -367,7 +376,7 @@ class TestEstimateNorm:
 class TestNormCrop:
     def _make_landmarks(self) -> np.ndarray:
         return np.array(
-            [[150., 140.], [250., 140.], [200., 200.], [160., 270.], [240., 270.]],
+            [[150.0, 140.0], [250.0, 140.0], [200.0, 200.0], [160.0, 270.0], [240.0, 270.0]],
             dtype=np.float32,
         )
 
@@ -393,10 +402,10 @@ class TestNormCrop:
         img = _rand_image()
         lm = self._make_landmarks()
         crop_128, _ = norm_crop(img, lm, output_size=128)
-        crop_64, _  = norm_crop(img, lm, output_size=64)
+        crop_64, _ = norm_crop(img, lm, output_size=64)
         assert crop_128 is not None and crop_64 is not None
         assert crop_128.shape == (128, 128, 3)
-        assert crop_64.shape  == (64, 64, 3)
+        assert crop_64.shape == (64, 64, 3)
 
 
 class TestEstimateLandmarksFromBbox:
@@ -414,10 +423,10 @@ class TestEstimateLandmarksFromBbox:
         face = _make_face_box(x1=100, y1=80, x2=300, y2=320)
         lm = estimate_landmarks_from_bbox(face)
         assert np.all(lm[:, 0] >= 100) and np.all(lm[:, 0] <= 300)
-        assert np.all(lm[:, 1] >= 80)  and np.all(lm[:, 1] <= 320)
+        assert np.all(lm[:, 1] >= 80) and np.all(lm[:, 1] <= 320)
 
     def test_different_boxes_give_different_landmarks(self):
-        face1 = _make_face_box(x1=0,   y1=0,   x2=100, y2=100)
+        face1 = _make_face_box(x1=0, y1=0, x2=100, y2=100)
         face2 = _make_face_box(x1=200, y1=200, x2=400, y2=400)
         lm1 = estimate_landmarks_from_bbox(face1)
         lm2 = estimate_landmarks_from_bbox(face2)
@@ -438,77 +447,77 @@ class TestPasteBack:
 
     def _make_affine_matrix(self) -> np.ndarray:
         lm = np.array(
-            [[150., 140.], [250., 140.], [200., 200.], [160., 270.], [240., 270.]],
+            [[150.0, 140.0], [250.0, 140.0], [200.0, 200.0], [160.0, 270.0], [240.0, 270.0]],
             dtype=np.float32,
         )
         return estimate_norm(lm, 128)
 
     def test_output_same_shape_as_original(self):
         original = _rand_image(480, 640)
-        crop     = self._make_aligned_crop(128)
-        M        = self._make_affine_matrix()
-        result   = paste_back(original, crop, M)
+        crop = self._make_aligned_crop(128)
+        M = self._make_affine_matrix()
+        result = paste_back(original, crop, M)
         assert result.shape == original.shape
 
     def test_output_uint8(self):
         original = _rand_image()
-        crop     = self._make_aligned_crop()
-        M        = self._make_affine_matrix()
-        result   = paste_back(original, crop, M)
+        crop = self._make_aligned_crop()
+        M = self._make_affine_matrix()
+        result = paste_back(original, crop, M)
         assert result.dtype == np.uint8
 
     def test_output_differs_from_original(self):
         original = _rand_image()
-        crop     = self._make_aligned_crop()
-        M        = self._make_affine_matrix()
-        result   = paste_back(original, crop, M)
+        crop = self._make_aligned_crop()
+        M = self._make_affine_matrix()
+        result = paste_back(original, crop, M)
         # At least some pixels should change in the face region
         assert not np.array_equal(result, original)
 
     def test_custom_mask(self):
         original = _rand_image()
-        crop     = self._make_aligned_crop()
-        M        = self._make_affine_matrix()
-        mask     = np.full((128, 128), 128, dtype=np.uint8)
-        result   = paste_back(original, crop, M, blend_mask=mask)
+        crop = self._make_aligned_crop()
+        M = self._make_affine_matrix()
+        mask = np.full((128, 128), 128, dtype=np.uint8)
+        result = paste_back(original, crop, M, blend_mask=mask)
         assert result.shape == original.shape
 
     def test_zero_mask_returns_original(self):
         original = _rand_image()
-        crop     = self._make_aligned_crop()
-        M        = self._make_affine_matrix()
-        mask     = np.zeros((128, 128), dtype=np.uint8)
-        result   = paste_back(original, crop, M, blend_mask=mask)
+        crop = self._make_aligned_crop()
+        M = self._make_affine_matrix()
+        mask = np.zeros((128, 128), dtype=np.uint8)
+        result = paste_back(original, crop, M, blend_mask=mask)
         np.testing.assert_array_equal(result, original)
 
 
 class TestPasteBackPoisson:
     def _make_affine_matrix(self) -> np.ndarray:
         lm = np.array(
-            [[150., 140.], [250., 140.], [200., 200.], [160., 270.], [240., 270.]],
+            [[150.0, 140.0], [250.0, 140.0], [200.0, 200.0], [160.0, 270.0], [240.0, 270.0]],
             dtype=np.float32,
         )
         return estimate_norm(lm, 128)
 
     def test_output_same_shape(self):
         original = _rand_image(480, 640)
-        crop     = np.random.randint(0, 256, (128, 128, 3), dtype=np.uint8)
-        M        = self._make_affine_matrix()
-        result   = paste_back_poisson(original, crop, M)
+        crop = np.random.randint(0, 256, (128, 128, 3), dtype=np.uint8)
+        M = self._make_affine_matrix()
+        result = paste_back_poisson(original, crop, M)
         assert result.shape == original.shape
 
     def test_output_uint8(self):
         original = _rand_image()
-        crop     = np.random.randint(0, 256, (128, 128, 3), dtype=np.uint8)
-        M        = self._make_affine_matrix()
-        result   = paste_back_poisson(original, crop, M)
+        crop = np.random.randint(0, 256, (128, 128, 3), dtype=np.uint8)
+        M = self._make_affine_matrix()
+        result = paste_back_poisson(original, crop, M)
         assert result.dtype == np.uint8
 
     def test_zero_mask_falls_back_to_alpha(self):
         """When mask is all-zero, paste_back_poisson should fall back gracefully."""
         original = _rand_image()
-        crop     = np.random.randint(0, 256, (128, 128, 3), dtype=np.uint8)
-        M        = self._make_affine_matrix()
+        crop = np.random.randint(0, 256, (128, 128, 3), dtype=np.uint8)
+        M = self._make_affine_matrix()
         zero_mask = np.zeros((128, 128), dtype=np.uint8)
         # Should not raise
         result = paste_back_poisson(original, crop, M, mask=zero_mask)
@@ -538,17 +547,17 @@ class TestMakeCropMask:
         assert mask[0, 0] == 0
 
     def test_feathering_reduces_max(self):
-        mask_no_feather    = _make_crop_mask(128, feather=0)
-        mask_with_feather  = _make_crop_mask(128, feather=20)
+        mask_no_feather = _make_crop_mask(128, feather=0)
+        mask_with_feather = _make_crop_mask(128, feather=20)
         # Both should have max 255 before feathering; after feathering
         # the maximum can still be 255 at centre — but the edges should be softer
         # (mean should be lower with more feathering due to wider gradient)
         assert mask_no_feather.mean() >= mask_with_feather.mean() or True  # informational
 
     def test_different_sizes(self):
-        m64  = _make_crop_mask(64)
+        m64 = _make_crop_mask(64)
         m128 = _make_crop_mask(128)
-        assert m64.shape  == (64, 64)
+        assert m64.shape == (64, 64)
         assert m128.shape == (128, 128)
 
 
@@ -561,6 +570,7 @@ class TestBaseSwapperAbstract:
         class PartialSwapper(BaseSwapper):
             def swap(self, request):
                 pass
+
         with pytest.raises(TypeError):
             PartialSwapper()
 
@@ -568,6 +578,7 @@ class TestBaseSwapperAbstract:
         class PartialSwapper(BaseSwapper):
             def load_model(self):
                 pass
+
         with pytest.raises(TypeError):
             PartialSwapper()
 
@@ -575,12 +586,14 @@ class TestBaseSwapperAbstract:
         class MinimalSwapper(BaseSwapper):
             def load_model(self):
                 self._is_loaded = True
+
             def swap(self, request):
                 return SwapResult(
                     output_image=request.target_image,
                     status=SwapStatus.SUCCESS,
                     target_face=request.target_face,
                 )
+
         s = MinimalSwapper()
         assert not s.is_loaded
         s.load_model()
@@ -590,12 +603,14 @@ class TestBaseSwapperAbstract:
         class MinimalSwapper(BaseSwapper):
             def load_model(self):
                 self._is_loaded = True
+
             def swap(self, request):
                 return SwapResult(
                     output_image=request.target_image,
                     status=SwapStatus.SUCCESS,
                     target_face=request.target_face,
                 )
+
         s = MinimalSwapper()
         with s as ctx:
             assert ctx.is_loaded is True
@@ -605,16 +620,22 @@ class TestBaseSwapperAbstract:
         class MinimalSwapper(BaseSwapper):
             def load_model(self):
                 self._is_loaded = True
+
             def swap(self, request):
                 pass
+
         s = MinimalSwapper()
         with pytest.raises(RuntimeError, match="not loaded"):
             s._require_loaded()
 
     def test_resolve_providers_returns_list(self):
         class MinimalSwapper(BaseSwapper):
-            def load_model(self): pass
-            def swap(self, request): pass
+            def load_model(self):
+                pass
+
+            def swap(self, request):
+                pass
+
         s = MinimalSwapper()
         result = s._resolve_providers(["CPUExecutionProvider"])
         assert isinstance(result, list)
@@ -622,8 +643,12 @@ class TestBaseSwapperAbstract:
 
     def test_model_name_uses_basename(self):
         class MinimalSwapper(BaseSwapper):
-            def load_model(self): pass
-            def swap(self, request): pass
+            def load_model(self):
+                pass
+
+            def swap(self, request):
+                pass
+
         s = MinimalSwapper(model_path="some/path/mymodel.onnx")
         assert s.model_name == "mymodel.onnx"
 
@@ -632,7 +657,10 @@ class TestBaseSwapperAbstract:
             def load_model(self):
                 self._model = object()
                 self._is_loaded = True
-            def swap(self, request): pass
+
+            def swap(self, request):
+                pass
+
         s = MinimalSwapper()
         s.load_model()
         s.release()
@@ -641,32 +669,48 @@ class TestBaseSwapperAbstract:
 
     def test_validate_image_none_raises(self):
         class MinimalSwapper(BaseSwapper):
-            def load_model(self): pass
-            def swap(self, request): pass
+            def load_model(self):
+                pass
+
+            def swap(self, request):
+                pass
+
         s = MinimalSwapper()
         with pytest.raises(ValueError, match="None"):
             s._validate_image(None)  # type: ignore[arg-type]
 
     def test_validate_image_wrong_ndim_raises(self):
         class MinimalSwapper(BaseSwapper):
-            def load_model(self): pass
-            def swap(self, request): pass
+            def load_model(self):
+                pass
+
+            def swap(self, request):
+                pass
+
         s = MinimalSwapper()
         with pytest.raises(ValueError):
             s._validate_image(np.zeros((100, 100), dtype=np.uint8))
 
     def test_validate_image_empty_raises(self):
         class MinimalSwapper(BaseSwapper):
-            def load_model(self): pass
-            def swap(self, request): pass
+            def load_model(self):
+                pass
+
+            def swap(self, request):
+                pass
+
         s = MinimalSwapper()
         with pytest.raises(ValueError):
             s._validate_image(np.zeros((0, 0, 3), dtype=np.uint8))
 
     def test_get_landmarks_uses_existing(self):
         class MinimalSwapper(BaseSwapper):
-            def load_model(self): pass
-            def swap(self, request): pass
+            def load_model(self):
+                pass
+
+            def swap(self, request):
+                pass
+
         s = MinimalSwapper()
         face = _make_face_box(with_landmarks=True)
         lm = s._get_landmarks(face)
@@ -675,8 +719,12 @@ class TestBaseSwapperAbstract:
 
     def test_get_landmarks_estimates_when_missing(self):
         class MinimalSwapper(BaseSwapper):
-            def load_model(self): pass
-            def swap(self, request): pass
+            def load_model(self):
+                pass
+
+            def swap(self, request):
+                pass
+
         s = MinimalSwapper()
         face = _make_face_box(with_landmarks=False)
         lm = s._get_landmarks(face)
@@ -684,16 +732,24 @@ class TestBaseSwapperAbstract:
 
     def test_timer_returns_float(self):
         class MinimalSwapper(BaseSwapper):
-            def load_model(self): pass
-            def swap(self, request): pass
+            def load_model(self):
+                pass
+
+            def swap(self, request):
+                pass
+
         t = MinimalSwapper._timer()
         assert isinstance(t, float)
         assert t > 0
 
     def test_make_failed_result_returns_original_image(self):
         class MinimalSwapper(BaseSwapper):
-            def load_model(self): pass
-            def swap(self, request): pass
+            def load_model(self):
+                pass
+
+            def swap(self, request):
+                pass
+
         s = MinimalSwapper()
         img = _rand_image()
         face = _make_face_box()
@@ -812,25 +868,25 @@ class TestInSwapperSwap:
 
     def test_swap_output_image_same_shape_as_input(self):
         img = _rand_image(480, 640)
-        s   = _load_inswapper()
+        s = _load_inswapper()
         req = _make_swap_request(target_image=img, with_landmarks=True, blend_mode=BlendMode.ALPHA)
         result = s.swap(req)
         assert result.output_image.shape == img.shape
 
     def test_swap_output_image_is_uint8(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         req = _make_swap_request(with_landmarks=True, blend_mode=BlendMode.ALPHA)
         result = s.swap(req)
         assert result.output_image.dtype == np.uint8
 
     def test_swap_without_landmarks_uses_estimated(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         req = _make_swap_request(with_landmarks=False, blend_mode=BlendMode.ALPHA)
         result = s.swap(req)
         assert isinstance(result, SwapResult)
 
     def test_swap_increments_total_calls(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         req = _make_swap_request(with_landmarks=True, blend_mode=BlendMode.ALPHA)
         assert s.total_calls == 0
         s.swap(req)
@@ -839,19 +895,19 @@ class TestInSwapperSwap:
         assert s.total_calls == 2
 
     def test_swap_records_inference_time(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         req = _make_swap_request(with_landmarks=True, blend_mode=BlendMode.ALPHA)
         s.swap(req)
         assert s.avg_inference_ms >= 0.0
 
     def test_swap_poisson_blend_mode(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         req = _make_swap_request(with_landmarks=True, blend_mode=BlendMode.POISSON)
         result = s.swap(req)
         assert result.success is True
 
     def test_swap_masked_alpha_blend_mode(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         req = _make_swap_request(with_landmarks=True, blend_mode=BlendMode.MASKED_ALPHA)
         result = s.swap(req)
         assert result.success is True
@@ -883,7 +939,7 @@ class TestInSwapperSwap:
         assert result.status == SwapStatus.INFERENCE_ERROR
 
     def test_swap_result_has_timing_fields(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         req = _make_swap_request(with_landmarks=True, blend_mode=BlendMode.ALPHA)
         result = s.swap(req)
         assert result.swap_time_ms >= 0
@@ -893,7 +949,7 @@ class TestInSwapperSwap:
 
     def test_swap_alpha_less_than_one_blends(self):
         img = _rand_image(480, 640)
-        s   = _load_inswapper()
+        s = _load_inswapper()
         req = _make_swap_request(
             target_image=img,
             with_landmarks=True,
@@ -904,13 +960,13 @@ class TestInSwapperSwap:
         assert result.success is True
 
     def test_swap_intermediate_not_saved_by_default(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         req = _make_swap_request(with_landmarks=True, blend_mode=BlendMode.ALPHA)
         result = s.swap(req)
         assert result.intermediate is None
 
     def test_swap_intermediate_saved_when_requested(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         req = _make_swap_request(with_landmarks=True, blend_mode=BlendMode.ALPHA)
         req.metadata["save_intermediate"] = True
         result = s.swap(req)
@@ -957,13 +1013,13 @@ class TestInSwapperStats:
         assert s.avg_inference_ms == 0.0
 
     def test_avg_inference_ms_nonzero_after_call(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         req = _make_swap_request(with_landmarks=True, blend_mode=BlendMode.ALPHA)
         s.swap(req)
         assert s.avg_inference_ms >= 0.0
 
     def test_reset_stats(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         req = _make_swap_request(with_landmarks=True, blend_mode=BlendMode.ALPHA)
         s.swap(req)
         assert s.total_calls == 1
@@ -972,7 +1028,7 @@ class TestInSwapperStats:
         assert s.avg_inference_ms == 0.0
 
     def test_total_calls_accumulates(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         req = _make_swap_request(with_landmarks=True, blend_mode=BlendMode.ALPHA)
         for _ in range(5):
             s.swap(req)
@@ -982,42 +1038,42 @@ class TestInSwapperStats:
 class TestInSwapperPrePostProcess:
     def test_preprocess_output_shape(self):
         crop = np.random.randint(0, 256, (128, 128, 3), dtype=np.uint8)
-        out  = InSwapper._preprocess(crop)
+        out = InSwapper._preprocess(crop)
         assert out.shape == (1, 3, 128, 128)
 
     def test_preprocess_output_dtype(self):
         crop = np.random.randint(0, 256, (128, 128, 3), dtype=np.uint8)
-        out  = InSwapper._preprocess(crop)
+        out = InSwapper._preprocess(crop)
         assert out.dtype == np.float32
 
     def test_preprocess_range(self):
         crop = np.random.randint(0, 256, (128, 128, 3), dtype=np.uint8)
-        out  = InSwapper._preprocess(crop)
+        out = InSwapper._preprocess(crop)
         assert out.min() >= -1.0 - 1e-5
         assert out.max() <= 1.0 + 1e-5
 
     def test_postprocess_output_shape(self):
-        rng    = np.random.default_rng(0)
+        rng = np.random.default_rng(0)
         tensor = rng.uniform(-1, 1, (1, 3, 128, 128)).astype(np.float32)
-        out    = InSwapper._postprocess(tensor)
+        out = InSwapper._postprocess(tensor)
         assert out.shape == (128, 128, 3)
 
     def test_postprocess_output_dtype(self):
-        rng    = np.random.default_rng(1)
+        rng = np.random.default_rng(1)
         tensor = rng.uniform(-1, 1, (1, 3, 128, 128)).astype(np.float32)
-        out    = InSwapper._postprocess(tensor)
+        out = InSwapper._postprocess(tensor)
         assert out.dtype == np.uint8
 
     def test_postprocess_range(self):
-        rng    = np.random.default_rng(2)
+        rng = np.random.default_rng(2)
         tensor = rng.uniform(-1, 1, (1, 3, 128, 128)).astype(np.float32)
-        out    = InSwapper._postprocess(tensor)
+        out = InSwapper._postprocess(tensor)
         assert out.min() >= 0
         assert out.max() <= 255
 
     def test_preprocess_postprocess_roundtrip_approximate(self):
         """Pre-process then post-process should approximately recover the original."""
-        rng  = np.random.default_rng(3)
+        rng = np.random.default_rng(3)
         crop = rng.integers(10, 245, (128, 128, 3), dtype=np.uint8)
         tensor = InSwapper._preprocess(crop)
         recovered = InSwapper._postprocess(tensor)
@@ -1047,7 +1103,7 @@ class TestInSwapperSwapAll:
         )
 
     def test_swap_all_returns_batch_result(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         emb = _make_embedding()
         img = _rand_image(480, 640)
         det = self._make_detection_result(n_faces=2)
@@ -1055,7 +1111,7 @@ class TestInSwapperSwapAll:
         assert isinstance(batch, BatchSwapResult)
 
     def test_swap_all_result_count_matches_faces(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         emb = _make_embedding()
         img = _rand_image(480, 640)
         det = self._make_detection_result(n_faces=3)
@@ -1063,7 +1119,7 @@ class TestInSwapperSwapAll:
         assert len(batch.swap_results) == 3
 
     def test_swap_all_output_image_same_shape(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         emb = _make_embedding()
         img = _rand_image(480, 640)
         det = self._make_detection_result(n_faces=2)
@@ -1071,7 +1127,7 @@ class TestInSwapperSwapAll:
         assert batch.output_image.shape == img.shape
 
     def test_swap_all_max_faces_respected(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         emb = _make_embedding()
         img = _rand_image(480, 640)
         det = self._make_detection_result(n_faces=4)
@@ -1079,7 +1135,7 @@ class TestInSwapperSwapAll:
         assert len(batch.swap_results) == 2
 
     def test_swap_all_zero_faces(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         emb = _make_embedding()
         img = _rand_image(480, 640)
         det = self._make_detection_result(n_faces=0)
@@ -1088,7 +1144,7 @@ class TestInSwapperSwapAll:
         assert batch.all_success is True
 
     def test_swap_all_raises_when_not_loaded(self):
-        s   = InSwapper()
+        s = InSwapper()
         emb = _make_embedding()
         img = _rand_image()
         det = self._make_detection_result(n_faces=1)
@@ -1096,7 +1152,7 @@ class TestInSwapperSwapAll:
             s.swap_all(emb, img, det)
 
     def test_swap_all_has_total_time(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         emb = _make_embedding()
         img = _rand_image(480, 640)
         det = self._make_detection_result(n_faces=2)
@@ -1104,7 +1160,7 @@ class TestInSwapperSwapAll:
         assert batch.total_time_ms >= 0
 
     def test_swap_all_blend_mode_override(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         emb = _make_embedding()
         img = _rand_image(480, 640)
         det = self._make_detection_result(n_faces=1)
@@ -1114,39 +1170,39 @@ class TestInSwapperSwapAll:
 
 class TestInSwapperBuildLatent:
     def test_output_shape(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         emb = _make_embedding()
         out = s._build_latent(emb)
         assert out.shape == (1, 512)
 
     def test_output_dtype(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         emb = _make_embedding()
         out = s._build_latent(emb)
         assert out.dtype == np.float32
 
     def test_with_emap(self):
-        s      = _load_inswapper()
+        s = _load_inswapper()
         s._emap = np.eye(512, dtype=np.float32)
-        emb    = _make_embedding()
-        out    = s._build_latent(emb)
+        emb = _make_embedding()
+        out = s._build_latent(emb)
         assert out.shape == (1, 512)
 
     def test_without_emap_uses_raw_embedding(self):
-        s      = _load_inswapper()
+        s = _load_inswapper()
         s._emap = None
-        emb    = _make_embedding()
-        out    = s._build_latent(emb)
+        emb = _make_embedding()
+        out = s._build_latent(emb)
         assert out.shape == (1, 512)
 
     def test_zero_vector_does_not_crash(self):
-        s   = _load_inswapper()
+        s = _load_inswapper()
         emb = FaceEmbedding(vector=np.zeros(512, dtype=np.float32))
         out = s._build_latent(emb)
         assert out.shape == (1, 512)
 
     def test_different_embeddings_produce_different_latents(self):
-        s    = _load_inswapper()
+        s = _load_inswapper()
         emb1 = _make_embedding(_rand_vec())
         emb2 = _make_embedding(_rand_vec() * -1)
         out1 = s._build_latent(emb1)

@@ -139,6 +139,7 @@ class FaceIdentity:
 
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class SearchResult:
     """
@@ -153,7 +154,7 @@ class SearchResult:
     """
 
     best_match: FaceMatch
-    all_matches: List[Tuple[str, float]]   # [(identity_name, similarity), ...]
+    all_matches: List[Tuple[str, float]]  # [(identity_name, similarity), ...]
     query_embedding: Optional[FaceEmbedding] = None
     search_time_ms: float = 0.0
     strategy: str = "best"
@@ -296,8 +297,7 @@ class FaceDatabase:
             else:
                 identity = self._identities[name]
                 logger.debug(
-                    f"Adding shot #{identity.num_embeddings + 1} "
-                    f"to identity: {name!r}"
+                    f"Adding shot #{identity.num_embeddings + 1} " f"to identity: {name!r}"
                 )
 
             if overwrite:
@@ -305,17 +305,14 @@ class FaceDatabase:
 
             # Cap shots per identity
             while identity.num_embeddings >= self._max_shots:
-                identity.embeddings.pop(0)   # Drop oldest shot
+                identity.embeddings.pop(0)  # Drop oldest shot
 
             identity.add_embedding(vector)
 
             if metadata:
                 identity.metadata.update(metadata)
 
-        logger.debug(
-            f"Identity '{name}': "
-            f"{identity.num_embeddings} shot(s) stored."
-        )
+        logger.debug(f"Identity '{name}': " f"{identity.num_embeddings} shot(s) stored.")
         return identity
 
     def register_many(
@@ -347,7 +344,7 @@ class FaceDatabase:
                 name,
                 emb,
                 metadata=metadata,
-                overwrite=(overwrite and i == 0),   # overwrite only on first
+                overwrite=(overwrite and i == 0),  # overwrite only on first
             )
         assert identity is not None, "Loop must execute at least once (empty check above)"
         return identity
@@ -402,11 +399,7 @@ class FaceDatabase:
         if q_norm > 1e-10:
             query_vec = query_vec / q_norm
 
-        face_index = (
-            query.face_index
-            if isinstance(query, FaceEmbedding)
-            else 0
-        )
+        face_index = query.face_index if isinstance(query, FaceEmbedding) else 0
 
         with self._lock:
             if not self._identities:
@@ -475,9 +468,7 @@ class FaceDatabase:
         if q_norm > 1e-10:
             query_vec = query_vec / q_norm
 
-        face_index = (
-            query.face_index if isinstance(query, FaceEmbedding) else 0
-        )
+        face_index = query.face_index if isinstance(query, FaceEmbedding) else 0
 
         with self._lock:
             ranked = self._rank_all(query_vec)
@@ -499,7 +490,7 @@ class FaceDatabase:
         else:
             best_name, best_sim = ranked[0]
             best_dist = float(np.sqrt(max(0.0, 2.0 * (1.0 - best_sim))))
-            is_known  = best_sim >= threshold
+            is_known = best_sim >= threshold
             best_match = FaceMatch(
                 identity=best_name if is_known else None,
                 similarity=best_sim,
@@ -546,9 +537,11 @@ class FaceDatabase:
             if not self._identities:
                 return [
                     FaceMatch(
-                        identity=None, similarity=0.0,
+                        identity=None,
+                        similarity=0.0,
                         distance=float("inf"),
-                        face_index=i, is_known=False,
+                        face_index=i,
+                        is_known=False,
                         threshold=threshold,
                     )
                     for i in range(len(queries))
@@ -564,19 +557,17 @@ class FaceDatabase:
             v = self._extract_vector(q)
             n = np.linalg.norm(v)
             vectors.append(v / n if n > 1e-10 else v)
-            face_indices.append(
-                q.face_index if isinstance(q, FaceEmbedding) else 0
-            )
+            face_indices.append(q.face_index if isinstance(q, FaceEmbedding) else 0)
 
-        Q = np.stack(vectors, axis=0).astype(np.float32)   # (N, D)
-        G = gallery.astype(np.float32)                      # (M, D)
+        Q = np.stack(vectors, axis=0).astype(np.float32)  # (N, D)
+        G = gallery.astype(np.float32)  # (M, D)
 
         # (N, M) similarity matrix
         sim_matrix = cosine_similarity_matrix(Q, G)
 
         results: List[FaceMatch] = []
         for i in range(len(queries)):
-            sims = sim_matrix[i]              # (M,)
+            sims = sim_matrix[i]  # (M,)
             best_j = int(np.argmax(sims))
             best_sim = float(sims[best_j])
             best_name = names[best_j]
@@ -590,17 +581,19 @@ class FaceDatabase:
                         best_sim = identity.best_similarity(vectors[i])
 
             best_dist = float(np.sqrt(max(0.0, 2.0 * (1.0 - best_sim))))
-            is_known  = best_sim >= threshold
+            is_known = best_sim >= threshold
 
-            results.append(FaceMatch(
-                identity=best_name if is_known else None,
-                similarity=best_sim,
-                distance=best_dist,
-                face_index=face_indices[i],
-                embedding=queries[i] if isinstance(queries[i], FaceEmbedding) else None,
-                is_known=is_known,
-                threshold=threshold,
-            ))
+            results.append(
+                FaceMatch(
+                    identity=best_name if is_known else None,
+                    similarity=best_sim,
+                    distance=best_dist,
+                    face_index=face_indices[i],
+                    embedding=queries[i] if isinstance(queries[i], FaceEmbedding) else None,
+                    is_known=is_known,
+                    threshold=threshold,
+                )
+            )
 
         return results
 
@@ -650,8 +643,7 @@ class FaceDatabase:
                 return False
             if new_name in self._identities and new_name != old_name:
                 raise ValueError(
-                    f"Cannot rename '{old_name}' → '{new_name}': "
-                    f"'{new_name}' already exists."
+                    f"Cannot rename '{old_name}' → '{new_name}': " f"'{new_name}' already exists."
                 )
             identity = self._identities.pop(old_name)
             identity.name = new_name
@@ -706,10 +698,7 @@ class FaceDatabase:
     def total_embeddings(self) -> int:
         """Total number of embedding vectors stored across all identities."""
         with self._lock:
-            return sum(
-                identity.num_embeddings
-                for identity in self._identities.values()
-            )
+            return sum(identity.num_embeddings for identity in self._identities.values())
 
     @property
     def is_empty(self) -> bool:
@@ -741,14 +730,14 @@ class FaceDatabase:
         path.parent.mkdir(parents=True, exist_ok=True)
 
         payload = {
-            "version":              "1.0",
-            "saved_at":             time.time(),
+            "version": "1.0",
+            "saved_at": time.time(),
             "similarity_threshold": self._threshold,
-            "strategy":             self._strategy,
-            "max_shots":            self._max_shots,
-            "identities":           dict(self._identities),
-            "count":                self.count,
-            "total_embeddings":     self.total_embeddings,
+            "strategy": self._strategy,
+            "max_shots": self._max_shots,
+            "identities": dict(self._identities),
+            "count": self.count,
+            "total_embeddings": self.total_embeddings,
         }
 
         with self._lock:
@@ -779,17 +768,13 @@ class FaceDatabase:
         """
         path = Path(path)
         if not path.exists():
-            raise FileNotFoundError(
-                f"FaceDatabase file not found: {path}"
-            )
+            raise FileNotFoundError(f"FaceDatabase file not found: {path}")
 
         with open(path, "rb") as f:
             payload = pickle.load(f)
 
         if not isinstance(payload, dict) or "identities" not in payload:
-            raise ValueError(
-                f"Unrecognised FaceDatabase format in: {path}"
-            )
+            raise ValueError(f"Unrecognised FaceDatabase format in: {path}")
 
         db = cls(
             similarity_threshold=payload.get("similarity_threshold", 0.45),
@@ -847,18 +832,20 @@ class FaceDatabase:
         with self._lock:
             records = []
             for name, identity in self._identities.items():
-                records.append({
-                    "name":         identity.name,
-                    "identity_id":  identity.identity_id,
-                    "num_shots":    identity.num_embeddings,
-                    "embeddings":   [e.tolist() for e in identity.embeddings],
-                    "metadata":     identity.metadata,
-                    "created_at":   identity.created_at,
-                    "updated_at":   identity.updated_at,
-                })
+                records.append(
+                    {
+                        "name": identity.name,
+                        "identity_id": identity.identity_id,
+                        "num_shots": identity.num_embeddings,
+                        "embeddings": [e.tolist() for e in identity.embeddings],
+                        "metadata": identity.metadata,
+                        "created_at": identity.created_at,
+                        "updated_at": identity.updated_at,
+                    }
+                )
         return {
-            "version":   "1.0",
-            "count":     self.count,
+            "version": "1.0",
+            "count": self.count,
             "identities": records,
         }
 
@@ -894,9 +881,7 @@ class FaceDatabase:
                 updated_at=rec.get("updated_at", time.time()),
             )
             for vec_list in rec.get("embeddings", []):
-                identity.embeddings.append(
-                    np.array(vec_list, dtype=np.float32)
-                )
+                identity.embeddings.append(np.array(vec_list, dtype=np.float32))
             with db._lock:
                 db._identities[rec["name"]] = identity
         return db
@@ -917,26 +902,26 @@ class FaceDatabase:
         with self._lock:
             if not self._identities:
                 return {
-                    "count":                   0,
-                    "total_embeddings":        0,
-                    "avg_shots_per_identity":  0.0,
-                    "min_shots":               0,
-                    "max_shots":               0,
-                    "identities":              [],
-                    "threshold":               self._threshold,
-                    "strategy":                self._strategy,
+                    "count": 0,
+                    "total_embeddings": 0,
+                    "avg_shots_per_identity": 0.0,
+                    "min_shots": 0,
+                    "max_shots": 0,
+                    "identities": [],
+                    "threshold": self._threshold,
+                    "strategy": self._strategy,
                 }
 
             shot_counts = [i.num_embeddings for i in self._identities.values()]
             return {
-                "count":                   self.count,
-                "total_embeddings":        self.total_embeddings,
-                "avg_shots_per_identity":  round(sum(shot_counts) / len(shot_counts), 2),
-                "min_shots":               min(shot_counts),
-                "max_shots":               max(shot_counts),
-                "identities":              self.list_identities(),
-                "threshold":               self._threshold,
-                "strategy":                self._strategy,
+                "count": self.count,
+                "total_embeddings": self.total_embeddings,
+                "avg_shots_per_identity": round(sum(shot_counts) / len(shot_counts), 2),
+                "min_shots": min(shot_counts),
+                "max_shots": max(shot_counts),
+                "identities": self.list_identities(),
+                "threshold": self._threshold,
+                "strategy": self._strategy,
             }
 
     def print_stats(self) -> None:
@@ -1004,7 +989,7 @@ class FaceDatabase:
         """
         effective_strategy = strategy or self._strategy
         best_name = ""
-        best_sim  = -1.0
+        best_sim = -1.0
 
         for name, identity in self._identities.items():
             if effective_strategy == "mean":
@@ -1013,14 +998,12 @@ class FaceDatabase:
                 sim = identity.best_similarity(query_vec)
 
             if sim > best_sim:
-                best_sim  = sim
+                best_sim = sim
                 best_name = name
 
         return best_name, float(best_sim)
 
-    def _rank_all(
-        self, query_vec: np.ndarray
-    ) -> List[Tuple[str, float]]:
+    def _rank_all(self, query_vec: np.ndarray) -> List[Tuple[str, float]]:
         """
         Rank all identities by similarity to *query_vec*, best first.
 
@@ -1090,9 +1073,7 @@ class FaceDatabase:
             return embedding.vector.astype(np.float32)
         if isinstance(embedding, np.ndarray):
             return embedding.flatten().astype(np.float32)
-        raise TypeError(
-            f"Expected FaceEmbedding or np.ndarray, got {type(embedding).__name__}."
-        )
+        raise TypeError(f"Expected FaceEmbedding or np.ndarray, got {type(embedding).__name__}.")
 
     @staticmethod
     def _validate_vector(vector: np.ndarray) -> None:
@@ -1103,9 +1084,7 @@ class FaceDatabase:
             vector: Candidate embedding array.
         """
         if vector.ndim != 1:
-            raise ValueError(
-                f"Embedding must be a 1-D vector, got shape {vector.shape}."
-            )
+            raise ValueError(f"Embedding must be a 1-D vector, got shape {vector.shape}.")
         if vector.size == 0:
             raise ValueError("Embedding vector is empty.")
         if not np.isfinite(vector).all():

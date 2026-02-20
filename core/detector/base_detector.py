@@ -150,7 +150,10 @@ class FaceBox:
         y2 = self.y2 + py if img_h is None else min(img_h, self.y2 + py)
 
         return FaceBox(
-            x1=x1, y1=y1, x2=x2, y2=y2,
+            x1=x1,
+            y1=y1,
+            x2=x2,
+            y2=y2,
             confidence=self.confidence,
             face_index=self.face_index,
             landmarks=self.landmarks,
@@ -178,7 +181,7 @@ class FaceBox:
             New FaceBox with fractional padding.
         """
         return self.pad(
-            px=int(self.width  * frac),
+            px=int(self.width * frac),
             py=int(self.height * frac),
             img_w=img_w,
             img_h=img_h,
@@ -259,6 +262,7 @@ class FaceBox:
 
 
 # ── convenience constructor ──────────────────────────────────
+
 
 def face_box_from_xyxy(
     x1: float,
@@ -390,10 +394,7 @@ class DetectionResult:
         Returns:
             Filtered DetectionResult.
         """
-        filtered = [
-            f for f in self.faces
-            if f.width >= min_px and f.height >= min_px
-        ]
+        filtered = [f for f in self.faces if f.width >= min_px and f.height >= min_px]
         for i, f in enumerate(filtered):
             f.face_index = i
         return DetectionResult(
@@ -479,7 +480,7 @@ class BaseDetector(ABC):
         self.max_faces = int(max_faces)
         self.device = self._resolve_device(device)
 
-        self._model = None          # Set by load_model()
+        self._model = None  # Set by load_model()
         self._is_loaded: bool = False
 
     # ------------------------------------------------------------------
@@ -553,6 +554,7 @@ class BaseDetector(ABC):
         iterable = images
         if show_progress:
             from tqdm import tqdm
+
             iterable = tqdm(images, desc="Detecting faces", unit="img")
 
         for idx, img in enumerate(iterable):
@@ -584,6 +586,7 @@ class BaseDetector(ABC):
     def model_name(self) -> str:
         """Human-readable model identifier (override in subclasses)."""
         import os
+
         return os.path.basename(self.model_path)
 
     # ------------------------------------------------------------------
@@ -638,6 +641,7 @@ class BaseDetector(ABC):
 
         try:
             import torch
+
             if torch.cuda.is_available():
                 return "cuda"
             if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
@@ -661,13 +665,9 @@ class BaseDetector(ABC):
         if image is None:
             raise ValueError("Image is None.")
         if not isinstance(image, np.ndarray):
-            raise ValueError(
-                f"Expected numpy ndarray, got {type(image).__name__}."
-            )
+            raise ValueError(f"Expected numpy ndarray, got {type(image).__name__}.")
         if image.ndim not in (2, 3):
-            raise ValueError(
-                f"Expected 2-D or 3-D array, got shape {image.shape}."
-            )
+            raise ValueError(f"Expected 2-D or 3-D array, got shape {image.shape}.")
         if image.size == 0:
             raise ValueError("Image array is empty (zero size).")
 

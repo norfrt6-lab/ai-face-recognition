@@ -13,7 +13,7 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 from typing import List, Optional
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import numpy as np
 import pytest
@@ -31,7 +31,10 @@ from core.detector.yolo_detector import YOLOFaceDetector
 def sample_face_box() -> FaceBox:
     """A simple FaceBox for reuse across tests."""
     return FaceBox(
-        x1=100, y1=80, x2=300, y2=320,
+        x1=100,
+        y1=80,
+        x2=300,
+        y2=320,
         confidence=0.92,
         face_index=0,
     )
@@ -42,16 +45,19 @@ def sample_face_box_with_landmarks() -> FaceBox:
     """A FaceBox that includes 5-point landmarks."""
     lm = np.array(
         [
-            [150.0, 140.0],   # left_eye
-            [250.0, 140.0],   # right_eye
-            [200.0, 200.0],   # nose
-            [160.0, 270.0],   # left_mouth
-            [240.0, 270.0],   # right_mouth
+            [150.0, 140.0],  # left_eye
+            [250.0, 140.0],  # right_eye
+            [200.0, 200.0],  # nose
+            [160.0, 270.0],  # left_mouth
+            [240.0, 270.0],  # right_mouth
         ],
         dtype=np.float32,
     )
     return FaceBox(
-        x1=100, y1=80, x2=300, y2=320,
+        x1=100,
+        y1=80,
+        x2=300,
+        y2=320,
         confidence=0.92,
         face_index=0,
         landmarks=lm,
@@ -84,8 +90,8 @@ def empty_detection_result() -> DetectionResult:
 def multi_face_detection_result() -> DetectionResult:
     """A DetectionResult with three faces of varying sizes/confidences."""
     faces = [
-        FaceBox(x1=10,  y1=10,  x2=110, y2=110, confidence=0.95, face_index=0),
-        FaceBox(x1=200, y1=50,  x2=450, y2=350, confidence=0.72, face_index=1),
+        FaceBox(x1=10, y1=10, x2=110, y2=110, confidence=0.95, face_index=0),
+        FaceBox(x1=200, y1=50, x2=450, y2=350, confidence=0.72, face_index=1),
         FaceBox(x1=500, y1=200, x2=600, y2=320, confidence=0.60, face_index=2),
     ]
     return DetectionResult(
@@ -129,7 +135,6 @@ def mock_yolo_detector(tmp_path) -> YOLOFaceDetector:
 class TestFaceBox:
     """Unit tests for the FaceBox dataclass."""
 
-
     def test_basic_construction(self, sample_face_box):
         fb = sample_face_box
         assert fb.x1 == 100
@@ -156,20 +161,19 @@ class TestFaceBox:
         fb = FaceBox(x1=0, y1=0, x2=50, y2=50, confidence=0.8, track_id=42)
         assert fb.track_id == 42
 
-
     def test_width(self, sample_face_box):
-        assert sample_face_box.width == 200   # 300 - 100
+        assert sample_face_box.width == 200  # 300 - 100
 
     def test_height(self, sample_face_box):
         assert sample_face_box.height == 240  # 320 - 80
 
     def test_area(self, sample_face_box):
-        assert sample_face_box.area == 200 * 240   # 48000
+        assert sample_face_box.area == 200 * 240  # 48000
 
     def test_center(self, sample_face_box):
         cx, cy = sample_face_box.center
-        assert cx == 200   # (100 + 300) // 2
-        assert cy == 200   # (80 + 320) // 2
+        assert cx == 200  # (100 + 300) // 2
+        assert cy == 200  # (80 + 320) // 2
 
     def test_aspect_ratio(self, sample_face_box):
         ar = sample_face_box.aspect_ratio
@@ -201,7 +205,6 @@ class TestFaceBox:
         fb = FaceBox(x1=50, y1=50, x2=50, y2=100, confidence=0.9)
         assert fb.area == 0
 
-
     def test_scale_uniform(self, sample_face_box):
         scaled = sample_face_box.scale(2.0, 2.0)
         assert scaled.x1 == 200
@@ -232,7 +235,6 @@ class TestFaceBox:
         scaled = sample_face_box.scale(1.0, 1.0)
         assert scaled.as_tuple == sample_face_box.as_tuple
 
-
     def test_pad_positive(self, sample_face_box):
         padded = sample_face_box.pad(px=10, py=10)
         assert padded.x1 == 90
@@ -255,7 +257,6 @@ class TestFaceBox:
         padded = sample_face_box.pad(px=0, py=0)
         assert padded.as_tuple == sample_face_box.as_tuple
 
-
     def test_pad_fractional_10pct(self, sample_face_box):
         # width=200, height=240 → px=20, py=24
         padded = sample_face_box.pad_fractional(0.10)
@@ -265,7 +266,6 @@ class TestFaceBox:
     def test_pad_fractional_zero(self, sample_face_box):
         padded = sample_face_box.pad_fractional(0.0)
         assert padded.as_tuple == sample_face_box.as_tuple
-
 
     def test_clamp_no_change_when_within_bounds(self, sample_face_box):
         clamped = sample_face_box.clamp(img_w=640, img_h=480)
@@ -287,12 +287,11 @@ class TestFaceBox:
         assert clamped.x1 == 0
         assert clamped.y1 == 0
 
-
     def test_iou_identical_boxes(self, sample_face_box):
         assert sample_face_box.iou(sample_face_box) == pytest.approx(1.0)
 
     def test_iou_no_overlap(self):
-        a = FaceBox(x1=0,   y1=0,   x2=100, y2=100, confidence=0.9)
+        a = FaceBox(x1=0, y1=0, x2=100, y2=100, confidence=0.9)
         b = FaceBox(x1=200, y1=200, x2=300, y2=300, confidence=0.9)
         assert a.iou(b) == pytest.approx(0.0)
 
@@ -320,11 +319,10 @@ class TestFaceBox:
         b = FaceBox(x1=50, y1=50, x2=50, y2=50, confidence=0.9)  # zero area
         assert a.iou(b) == pytest.approx(0.0)
 
-
     def test_crop_returns_correct_shape(self, sample_face_box, blank_image):
         crop = sample_face_box.crop(blank_image)
-        expected_h = sample_face_box.height   # 240
-        expected_w = sample_face_box.width    # 200
+        expected_h = sample_face_box.height  # 240
+        expected_w = sample_face_box.width  # 200
         assert crop.shape == (expected_h, expected_w, 3)
 
     def test_crop_is_copy(self, sample_face_box, blank_image):
@@ -340,7 +338,6 @@ class TestFaceBox:
         assert crop.shape[0] <= 480
         assert crop.shape[1] <= 640
 
-
     def test_repr_contains_key_info(self, sample_face_box):
         r = repr(sample_face_box)
         assert "FaceBox" in r
@@ -353,8 +350,8 @@ class TestFaceBoxFromXYXY:
 
     def test_basic_creation(self):
         fb = face_box_from_xyxy(10.7, 20.3, 110.6, 220.9, confidence=0.88)
-        assert fb.x1 == 11   # round(10.7)
-        assert fb.y1 == 20   # round(20.3)
+        assert fb.x1 == 11  # round(10.7)
+        assert fb.y1 == 20  # round(20.3)
         assert fb.x2 == 111  # round(110.6)
         assert fb.y2 == 221  # round(220.9)
         assert fb.confidence == pytest.approx(0.88)
@@ -383,7 +380,6 @@ class TestFaceBoxFromXYXY:
 
 class TestDetectionResult:
     """Unit tests for the DetectionResult dataclass."""
-
 
     def test_num_faces(self, multi_face_detection_result):
         assert multi_face_detection_result.num_faces == 3
@@ -420,7 +416,6 @@ class TestDetectionResult:
         lm_list = multi_face_detection_result.landmarks_list
         assert all(lm is None for lm in lm_list)
 
-
     def test_filter_by_confidence_removes_low(self, multi_face_detection_result):
         filtered = multi_face_detection_result.filter_by_confidence(0.75)
         assert filtered.num_faces == 1
@@ -441,9 +436,8 @@ class TestDetectionResult:
 
     def test_filter_preserves_metadata(self, multi_face_detection_result):
         filtered = multi_face_detection_result.filter_by_confidence(0.5)
-        assert filtered.image_width  == multi_face_detection_result.image_width
+        assert filtered.image_width == multi_face_detection_result.image_width
         assert filtered.image_height == multi_face_detection_result.image_height
-
 
     def test_filter_by_min_size_removes_small(self, multi_face_detection_result):
         # face at index 0 is 100x100, face at index 1 is 250x300, face 2 is 100x120
@@ -453,9 +447,7 @@ class TestDetectionResult:
         assert filtered.faces[0].width == 250
         assert filtered.faces[0].height == 300
 
-    def test_filter_by_min_size_keeps_all_when_small_threshold(
-        self, multi_face_detection_result
-    ):
+    def test_filter_by_min_size_keeps_all_when_small_threshold(self, multi_face_detection_result):
         filtered = multi_face_detection_result.filter_by_min_size(1)
         assert filtered.num_faces == 3
 
@@ -463,7 +455,6 @@ class TestDetectionResult:
         filtered = multi_face_detection_result.filter_by_min_size(150)
         for i, f in enumerate(filtered.faces):
             assert f.face_index == i
-
 
     def test_get_face_valid_index(self, multi_face_detection_result):
         face = multi_face_detection_result.get_face(1)
@@ -482,7 +473,6 @@ class TestDetectionResult:
         face = multi_face_detection_result.get_face(-1)
         assert face is None
 
-
     def test_repr(self, sample_detection_result):
         r = repr(sample_detection_result)
         assert "DetectionResult" in r
@@ -497,7 +487,7 @@ class ConcreteDetector(BaseDetector):
     """
 
     def load_model(self) -> None:
-        self._model = object()   # Dummy model object
+        self._model = object()  # Dummy model object
         self._is_loaded = True
 
     def detect(
@@ -509,9 +499,7 @@ class ConcreteDetector(BaseDetector):
         self._require_loaded()
         h, w = image.shape[:2]
         return DetectionResult(
-            faces=[
-                FaceBox(x1=10, y1=10, x2=50, y2=50, confidence=0.9)
-            ],
+            faces=[FaceBox(x1=10, y1=10, x2=50, y2=50, confidence=0.9)],
             image_width=w,
             image_height=h,
             inference_time_ms=1.0,
@@ -534,7 +522,6 @@ class TestBaseDetector:
             device="cpu",
         )
 
-
     def test_initial_not_loaded(self, detector):
         assert detector.is_loaded is False
 
@@ -548,16 +535,14 @@ class TestBaseDetector:
     def test_max_faces_stored(self, detector):
         assert detector.max_faces == 10
 
-
     def test_load_model_sets_is_loaded(self, detector):
         detector.load_model()
         assert detector.is_loaded is True
 
     def test_load_model_idempotent(self, detector):
         detector.load_model()
-        detector.load_model()   # Should not raise
+        detector.load_model()  # Should not raise
         assert detector.is_loaded is True
-
 
     def test_detect_requires_loaded(self, detector, blank_image):
         with pytest.raises(RuntimeError, match="not loaded"):
@@ -580,7 +565,6 @@ class TestBaseDetector:
         assert result.image_width == 640
         assert result.image_height == 480
 
-
     def test_detect_batch_returns_list(self, detector, blank_image):
         detector.load_model()
         images = [blank_image, blank_image, blank_image]
@@ -602,7 +586,6 @@ class TestBaseDetector:
         with pytest.raises(RuntimeError):
             detector.detect_batch([blank_image])
 
-
     def test_release_resets_is_loaded(self, detector):
         detector.load_model()
         assert detector.is_loaded is True
@@ -613,7 +596,6 @@ class TestBaseDetector:
         detector.load_model()
         detector.release()
         assert detector._model is None
-
 
     def test_context_manager_loads_on_enter(self, detector):
         assert detector.is_loaded is False
@@ -636,7 +618,6 @@ class TestBaseDetector:
     def test_context_manager_returns_self(self, detector):
         with detector as d:
             assert d is detector
-
 
     def test_resolve_device_cpu_passthrough(self):
         result = BaseDetector._resolve_device("cpu")

@@ -12,8 +12,8 @@ from core.detector.base_detector import FaceBox
 class _Track:
     track_id: int
     last_box: FaceBox
-    age: int = 0            # frames since last matched
-    total_frames: int = 1   # total frames this track has been alive
+    age: int = 0  # frames since last matched
+    total_frames: int = 1  # total frames this track has been alive
 
 
 class IoUTracker:
