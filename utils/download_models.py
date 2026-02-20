@@ -44,6 +44,8 @@ class ModelSpec:
 # Official / mirrored download URLs
 _MODEL_REGISTRY: Dict[str, ModelSpec] = {
     # Trained on WIDERFace by akanametov — lightweight & fast
+    # Trained on WIDERFace by akanametov — lightweight & fast
+    # SHA256: compute after first download and pin here for your environment
     "yolov8n-face": ModelSpec(
         name="YOLOv8n-face",
         filename="yolov8n-face.pt",
@@ -51,14 +53,14 @@ _MODEL_REGISTRY: Dict[str, ModelSpec] = {
         mirrors=[
             "https://huggingface.co/arnabdhar/YOLOv8-Face-Detection/resolve/main/model.pt",
         ],
-        sha256=None,  # Update with known hash after first download
+        sha256="d545bf1add5aa736a4febac4f4f9245a6d596cd0fe70d5d57989fe0cb9e626ca",
     ),
     "yolov8s-face": ModelSpec(
         name="YOLOv8s-face",
         filename="yolov8s-face.pt",
         url="https://github.com/akanametov/yolo-face/releases/download/v0.0.0/yolov8s-face.pt",
         mirrors=[],
-        sha256=None,
+        sha256=None,  # Compute after first verified download
     ),
     # Downloaded via the insightface Python SDK (handled separately below)
     "buffalo_l": ModelSpec(
@@ -68,7 +70,7 @@ _MODEL_REGISTRY: Dict[str, ModelSpec] = {
         mirrors=[
             "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip",
         ],
-        sha256=None,
+        sha256=None,  # ZIP extracted after download; verify individual ONNX files instead
         subdirectory=None,     # will be extracted to models/buffalo_l/
         unzip=True,
         post_download="buffalo_l_extract",
@@ -80,28 +82,28 @@ _MODEL_REGISTRY: Dict[str, ModelSpec] = {
         mirrors=[
             "https://github.com/facefusion/facefusion-assets/releases/download/models/inswapper_128.onnx",
         ],
-        sha256=None,
+        sha256="e4a3f08c753cb72d04e10aa0f7dbe3deebbf39567d4ead6dce08e98aa49e16af",
     ),
     "gfpgan_v1.4": ModelSpec(
         name="GFPGANv1.4 (face restoration)",
         filename="GFPGANv1.4.pth",
         url="https://github.com/TencentARC/GFPGAN/releases/download/v1.3.4/GFPGANv1.4.pth",
         mirrors=[],
-        sha256=None,
+        sha256="e2cd4703ab14f4d01fd1383a8a8b266f9a5833dacee8e6a79d3bf21a1b6be5ad",
     ),
     "codeformer": ModelSpec(
         name="CodeFormer (face restoration)",
         filename="codeformer.pth",
         url="https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/codeformer.pth",
         mirrors=[],
-        sha256=None,
+        sha256="1009e537e0c2a07d4cabce6355f53cb66767cd4b4297ec7a4a64ca4b8a5684b7",
     ),
     "retinaface_resnet50": ModelSpec(
         name="RetinaFace ResNet50 (face parsing)",
         filename="detection_Resnet50_Final.pth",
         url="https://github.com/xinntao/facexlib/releases/download/v0.1.0/detection_Resnet50_Final.pth",
         mirrors=[],
-        sha256=None,
+        sha256="6d1de9c2944f2ccddca5f5e010ea5ae64a39845a86311af6fdf30841b0a5a16d",
         subdirectory="facexlib",
     ),
     "parsenet": ModelSpec(
@@ -109,7 +111,7 @@ _MODEL_REGISTRY: Dict[str, ModelSpec] = {
         filename="parsing_parsenet.pth",
         url="https://github.com/xinntao/facexlib/releases/download/v0.2.2/parsing_parsenet.pth",
         mirrors=[],
-        sha256=None,
+        sha256="3d558d8d0e42c20224f13cf5a29c79eba2d59913419f945545d8cf7b72920de2",
         subdirectory="facexlib",
     ),
 }
