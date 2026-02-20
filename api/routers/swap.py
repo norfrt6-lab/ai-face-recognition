@@ -60,12 +60,21 @@ def _get_upload_limits() -> tuple[int, int, int]:
         return 10 * 1024 * 1024, 4096, 10
 
 
-def _decode_image(upload: UploadFile) -> np.ndarray:
+async def _decode_image(upload: UploadFile) -> np.ndarray:
     """Read an UploadFile and decode it to a BGR numpy array."""
     max_bytes, max_dim, min_dim = _get_upload_limits()
 
+    # Pre-check Content-Length before reading full body into memory
+    claimed_size = upload.size
+    if claimed_size is not None and claimed_size > max_bytes:
+        mb = max_bytes / (1024 * 1024)
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large ({claimed_size} bytes). Maximum: {mb:.0f} MB.",
+        )
+
     try:
-        data = upload.file.read()
+        data = await upload.read()
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -216,8 +225,8 @@ async def swap_faces(
                 detail=f"Pipeline component '{component}' is not ready.",
             )
 
-    source_image = _decode_image(source_file)
-    target_image = _decode_image(target_file)
+    source_image = await _decode_image(source_file)
+    target_image = await _decode_image(target_file)
 
     core_blend_mode = _blend_mode_to_core(params.blend_mode)
 
