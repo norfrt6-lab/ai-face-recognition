@@ -619,8 +619,11 @@ class InsightFaceRecognizer(BaseRecognizer):
         norm = np.linalg.norm(vec)
         if norm > 1e-10:
             vec = vec / norm
+        else:
+            logger.warning("Embedding norm near zero — degenerate extraction.")
+            return None
 
-            bbox_raw = getattr(face, "bbox", None)
+        bbox_raw = getattr(face, "bbox", None)
         bbox = None
         if bbox_raw is not None:
             try:
@@ -629,7 +632,7 @@ class InsightFaceRecognizer(BaseRecognizer):
             except Exception:
                 bbox = None
 
-            kps = getattr(face, "kps", None)
+        kps = getattr(face, "kps", None)
         landmarks = None
         if kps is not None:
             try:
@@ -637,7 +640,7 @@ class InsightFaceRecognizer(BaseRecognizer):
             except Exception:
                 landmarks = None
 
-            attributes = self._extract_attributes(face)
+        attributes = self._extract_attributes(face)
 
         return FaceEmbedding(
             vector=vec,
