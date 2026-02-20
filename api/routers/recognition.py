@@ -43,6 +43,9 @@ router = APIRouter(tags=["Recognition"])
 _detector_breaker = CircuitBreaker("detector", failure_threshold=5, recovery_timeout=30.0)
 _recognizer_breaker = CircuitBreaker("recognizer", failure_threshold=5, recovery_timeout=30.0)
 
+# Maximum seconds for a single model inference call before timeout
+_INFERENCE_TIMEOUT: float = 60.0
+
 
 def _get_upload_limits() -> tuple[int, int, int]:
     """Return (max_bytes, max_dim, min_dim) from settings or defaults."""
@@ -214,14 +217,22 @@ async def recognize(
 
     try:
         _detector_breaker.check()
-        detection = await loop.run_in_executor(
-            executor, detector.detect, img,
+        detection = await asyncio.wait_for(
+            loop.run_in_executor(executor, detector.detect, img),
+            timeout=_INFERENCE_TIMEOUT,
         )
         _detector_breaker.record_success()
     except CircuitOpenError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
+        )
+    except asyncio.TimeoutError:
+        _detector_breaker.record_failure()
+        logger.error(f"[{request_id[:8]}] Detection timed out after {_INFERENCE_TIMEOUT}s")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=f"Face detection timed out after {_INFERENCE_TIMEOUT:.0f}s.",
         )
     except Exception as exc:
         _detector_breaker.record_failure()
@@ -258,12 +269,21 @@ async def recognize(
         try:
             _recognizer_breaker.check()
             face_bbox = (int(face.x1), int(face.y1), int(face.x2), int(face.y2))
-            embedding = await loop.run_in_executor(
-                executor,
-                partial(recognizer.get_embedding, img, bbox=face_bbox),
+            embedding = await asyncio.wait_for(
+                loop.run_in_executor(
+                    executor,
+                    partial(recognizer.get_embedding, img, bbox=face_bbox),
+                ),
+                timeout=_INFERENCE_TIMEOUT,
             )
             _recognizer_breaker.record_success()
         except CircuitOpenError:
+            embedding = None
+        except asyncio.TimeoutError:
+            _recognizer_breaker.record_failure()
+            logger.warning(
+                f"[{request_id[:8]}] Embedding timed out for face {face.face_index}"
+            )
             embedding = None
         except Exception as exc:
             _recognizer_breaker.record_failure()
@@ -276,9 +296,12 @@ async def recognize(
         attributes: Optional[FaceAttributeResponse] = None
         if return_attributes and embedding is not None:
             try:
-                attr = await loop.run_in_executor(
-                    executor,
-                    partial(recognizer.get_attributes, img, bbox=face_bbox),
+                attr = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        executor,
+                        partial(recognizer.get_attributes, img, bbox=face_bbox),
+                    ),
+                    timeout=_INFERENCE_TIMEOUT,
                 )
                 if attr:
                     attributes = FaceAttributeResponse(
@@ -445,14 +468,21 @@ async def register(
 
     try:
         _detector_breaker.check()
-        detection = await loop.run_in_executor(
-            executor, detector.detect, img,
+        detection = await asyncio.wait_for(
+            loop.run_in_executor(executor, detector.detect, img),
+            timeout=_INFERENCE_TIMEOUT,
         )
         _detector_breaker.record_success()
     except CircuitOpenError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
+        )
+    except asyncio.TimeoutError:
+        _detector_breaker.record_failure()
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=f"Face detection timed out after {_INFERENCE_TIMEOUT:.0f}s.",
         )
     except Exception as exc:
         _detector_breaker.record_failure()
@@ -473,15 +503,24 @@ async def register(
     try:
         _recognizer_breaker.check()
         best_bbox = (int(best_face.x1), int(best_face.y1), int(best_face.x2), int(best_face.y2))
-        embedding = await loop.run_in_executor(
-            executor,
-            partial(recognizer.get_embedding, img, bbox=best_bbox),
+        embedding = await asyncio.wait_for(
+            loop.run_in_executor(
+                executor,
+                partial(recognizer.get_embedding, img, bbox=best_bbox),
+            ),
+            timeout=_INFERENCE_TIMEOUT,
         )
         _recognizer_breaker.record_success()
     except CircuitOpenError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
+        )
+    except asyncio.TimeoutError:
+        _recognizer_breaker.record_failure()
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=f"Embedding extraction timed out after {_INFERENCE_TIMEOUT:.0f}s.",
         )
     except Exception as exc:
         _recognizer_breaker.record_failure()

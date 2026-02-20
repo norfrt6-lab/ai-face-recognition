@@ -43,6 +43,9 @@ router = APIRouter(tags=["Face Swap"])
 _detector_breaker = CircuitBreaker("detector", failure_threshold=5, recovery_timeout=30.0)
 _swapper_breaker = CircuitBreaker("swapper", failure_threshold=5, recovery_timeout=30.0)
 
+# Maximum seconds for a single model inference call before timeout
+_INFERENCE_TIMEOUT: float = 60.0
+
 
 def _get_upload_limits() -> tuple[int, int, int]:
     """Return (max_bytes, max_dim, min_dim) from settings or defaults."""
@@ -239,14 +242,22 @@ async def swap_faces(
 
     try:
         _detector_breaker.check()
-        source_detection = await loop.run_in_executor(
-            executor, state.detector.detect, source_image,
+        source_detection = await asyncio.wait_for(
+            loop.run_in_executor(executor, state.detector.detect, source_image),
+            timeout=_INFERENCE_TIMEOUT,
         )
         _detector_breaker.record_success()
     except CircuitOpenError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
+        )
+    except asyncio.TimeoutError:
+        _detector_breaker.record_failure()
+        logger.error(f"[{request_id[:8]}] Source detection timed out after {_INFERENCE_TIMEOUT}s")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=f"Face detection timed out after {_INFERENCE_TIMEOUT:.0f}s.",
         )
     except Exception as exc:
         _detector_breaker.record_failure()
@@ -268,9 +279,18 @@ async def swap_faces(
 
     try:
         src_bbox = (int(src_face.x1), int(src_face.y1), int(src_face.x2), int(src_face.y2))
-        source_embedding = await loop.run_in_executor(
-            executor,
-            partial(state.recognizer.get_embedding, source_image, bbox=src_bbox),
+        source_embedding = await asyncio.wait_for(
+            loop.run_in_executor(
+                executor,
+                partial(state.recognizer.get_embedding, source_image, bbox=src_bbox),
+            ),
+            timeout=_INFERENCE_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        logger.error(f"[{request_id[:8]}] Embedding extraction timed out after {_INFERENCE_TIMEOUT}s")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=f"Embedding extraction timed out after {_INFERENCE_TIMEOUT:.0f}s.",
         )
     except Exception as exc:
         logger.error(f"[{request_id[:8]}] Embedding extraction failed: {exc}")
@@ -287,14 +307,22 @@ async def swap_faces(
 
     try:
         _detector_breaker.check()
-        target_detection = await loop.run_in_executor(
-            executor, state.detector.detect, target_image,
+        target_detection = await asyncio.wait_for(
+            loop.run_in_executor(executor, state.detector.detect, target_image),
+            timeout=_INFERENCE_TIMEOUT,
         )
         _detector_breaker.record_success()
     except CircuitOpenError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
+        )
+    except asyncio.TimeoutError:
+        _detector_breaker.record_failure()
+        logger.error(f"[{request_id[:8]}] Target detection timed out after {_INFERENCE_TIMEOUT}s")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=f"Face detection timed out after {_INFERENCE_TIMEOUT:.0f}s.",
         )
     except Exception as exc:
         _detector_breaker.record_failure()
@@ -313,18 +341,21 @@ async def swap_faces(
     try:
         _swapper_breaker.check()
         if swap_all_faces:
-            batch_result = await loop.run_in_executor(
-                executor,
-                partial(
-                    state.swapper.swap_all,
-                    source_embedding=source_embedding,
-                    target_image=target_image,
-                    target_detection=target_detection,
-                    blend_mode=core_blend_mode,
-                    blend_alpha=blend_alpha,
-                    mask_feather=mask_feather,
-                    max_faces=max_faces,
+            batch_result = await asyncio.wait_for(
+                loop.run_in_executor(
+                    executor,
+                    partial(
+                        state.swapper.swap_all,
+                        source_embedding=source_embedding,
+                        target_image=target_image,
+                        target_detection=target_detection,
+                        blend_mode=core_blend_mode,
+                        blend_alpha=blend_alpha,
+                        mask_feather=mask_feather,
+                        max_faces=max_faces,
+                    ),
                 ),
+                timeout=_INFERENCE_TIMEOUT,
             )
             output_image  = batch_result.output_image
             swap_results  = batch_result.swap_results
@@ -341,8 +372,9 @@ async def swap_faces(
                 blend_alpha=blend_alpha,
                 mask_feather=mask_feather,
             )
-            single_result = await loop.run_in_executor(
-                executor, state.swapper.swap, swap_req,
+            single_result = await asyncio.wait_for(
+                loop.run_in_executor(executor, state.swapper.swap, swap_req),
+                timeout=_INFERENCE_TIMEOUT,
             )
             output_image = single_result.output_image
             swap_results = [single_result]
@@ -352,6 +384,13 @@ async def swap_faces(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
+        )
+    except asyncio.TimeoutError:
+        _swapper_breaker.record_failure()
+        logger.error(f"[{request_id[:8]}] Swap timed out after {_INFERENCE_TIMEOUT}s")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=f"Face swap timed out after {_INFERENCE_TIMEOUT:.0f}s.",
         )
     except Exception as exc:
         _swapper_breaker.record_failure()
@@ -372,8 +411,9 @@ async def swap_faces(
                 full_frame=True,
                 paste_back=True,
             )
-            enh_result = await loop.run_in_executor(
-                executor, enhancer_obj.enhance, enh_req,
+            enh_result = await asyncio.wait_for(
+                loop.run_in_executor(executor, enhancer_obj.enhance, enh_req),
+                timeout=_INFERENCE_TIMEOUT,
             )
             if enh_result.success:
                 output_image = enh_result.output_image
