@@ -18,11 +18,7 @@ from typing import Dict
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from api.schemas.responses import (
-    ComponentHealth,
-    ComponentStatus,
-    HealthResponse,
-)
+from api.schemas.responses import ComponentHealth, ComponentStatus, HealthResponse
 from utils.logger import get_logger
 
 logger = get_logger(__name__)

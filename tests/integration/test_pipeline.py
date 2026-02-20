@@ -45,18 +45,9 @@ from core.pipeline.face_pipeline import (
     _apply_watermark,
     _timer,
 )
-from core.pipeline.video_pipeline import (
-    VideoPipeline,
-    VideoProcessingConfig,
-    VideoProcessingResult,
-)
+from core.pipeline.video_pipeline import VideoPipeline, VideoProcessingConfig, VideoProcessingResult
 from core.recognizer.base_recognizer import FaceEmbedding, FaceMatch, RecognitionResult
-from core.swapper.base_swapper import (
-    BatchSwapResult,
-    BlendMode,
-    SwapResult,
-    SwapStatus,
-)
+from core.swapper.base_swapper import BatchSwapResult, BlendMode, SwapResult, SwapStatus
 
 
 def _blank_image(h: int = 480, w: int = 640) -> np.ndarray:
