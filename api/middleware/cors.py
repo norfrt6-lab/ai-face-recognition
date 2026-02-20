@@ -240,7 +240,8 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             return response
         finally:
             elapsed = time.perf_counter() - t_start
-            endpoint = request.url.path
+            route = request.scope.get("route")
+            endpoint = getattr(route, "path", request.url.path) if route else request.url.path
             method = request.method
             sc = str(response.status_code) if response else "500"
             REQUEST_LATENCY.labels(method=method, endpoint=endpoint).observe(elapsed)
