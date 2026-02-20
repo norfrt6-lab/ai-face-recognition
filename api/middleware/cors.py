@@ -150,6 +150,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # ip → deque of request timestamps (float, seconds since epoch)
         self._windows: Dict[str, Deque[float]] = defaultdict(deque)
+        self._last_cleanup: float = 0.0
+        self._cleanup_interval: float = 300.0  # evict stale IPs every 5 min
+        self._max_tracked_ips: int = 10_000
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         # Skip rate limiting for excluded paths
@@ -160,7 +163,26 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Resolve client IP
         client_ip = self._get_client_ip(request)
         now       = time.time()
-        window    = self._windows[client_ip]
+
+        # Periodic eviction of stale IP entries to bound memory
+        if now - self._last_cleanup > self._cleanup_interval:
+            self._last_cleanup = now
+            cutoff_evict = now - self.window_seconds
+            stale = [ip for ip, dq in self._windows.items() if not dq or dq[-1] <= cutoff_evict]
+            for ip in stale:
+                del self._windows[ip]
+
+        # Hard cap on tracked IPs to prevent memory exhaustion
+        if len(self._windows) >= self._max_tracked_ips and client_ip not in self._windows:
+            logger.warning(f"Rate limiter: max tracked IPs ({self._max_tracked_ips}) reached, rejecting new IP.")
+            return Response(
+                content='{"error":"rate_limit_exceeded","message":"Server under heavy load. Try again later."}',
+                status_code=429,
+                media_type="application/json",
+                headers={"Retry-After": "60"},
+            )
+
+        window = self._windows[client_ip]
 
         # Evict timestamps outside the current window
         cutoff = now - self.window_seconds
@@ -196,27 +218,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         """
         Extract the real client IP from the request.
 
-        Prefers ``X-Forwarded-For`` (set by reverse proxies / load
-        balancers) over the direct connection IP.
-
-        Args:
-            request: FastAPI/Starlette Request object.
-
-        Returns:
-            Client IP address string.
+        Uses the direct connection IP to prevent spoofing via
+        ``X-Forwarded-For``. Deploy behind a reverse proxy that sets
+        ``X-Real-IP`` or use Starlette's ``ProxyHeadersMiddleware``
+        with explicit trusted hosts for proxy-aware IP resolution.
         """
-        forwarded_for = request.headers.get("X-Forwarded-For")
-        if forwarded_for:
-            # X-Forwarded-For may be a comma-separated list; take the first
-            return forwarded_for.split(",")[0].strip()
-
-        real_ip = request.headers.get("X-Real-IP")
-        if real_ip:
-            return real_ip.strip()
-
         if request.client:
             return request.client.host
-
         return "unknown"
 
 
