@@ -112,9 +112,16 @@ def _call_swap_api(
     """
     url = f"{_get_api_url()}{SWAP_ENDPOINT}"
 
+    def _guess_mime(filename: str) -> str:
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+        return {
+            "jpg": "image/jpeg", "jpeg": "image/jpeg",
+            "png": "image/png", "webp": "image/webp", "bmp": "image/bmp",
+        }.get(ext, "image/jpeg")
+
     files = {
-        "source_file": (source_filename, source_bytes, "image/jpeg"),
-        "target_file": (target_filename, target_bytes, "image/jpeg"),
+        "source_file": (source_filename, source_bytes, _guess_mime(source_filename)),
+        "target_file": (target_filename, target_bytes, _guess_mime(target_filename)),
     }
     data = {
         "blend_mode":         blend_mode,

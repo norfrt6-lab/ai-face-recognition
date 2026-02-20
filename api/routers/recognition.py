@@ -569,6 +569,9 @@ async def list_identities(
     page_size:   int            = 50,
     name_filter: Optional[str]  = None,
 ) -> dict:
+    # Validate pagination bounds
+    page = max(1, page)
+    page_size = max(1, min(page_size, 200))
     """
     Return a paginated list of registered face identities.
 
