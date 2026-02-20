@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# api/schemas/requests.py
-# ============================================================
 # Pydantic v2 request models for all FastAPI endpoints.
 #
 # Schemas:
@@ -9,7 +5,6 @@
 #   RegisterRequest    — POST /api/v1/register
 #   SwapRequest        — POST /api/v1/swap
 #   HealthRequest      — (no body, included for completeness)
-# ============================================================
 
 from __future__ import annotations
 
@@ -18,10 +13,6 @@ from typing import Annotated, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-
-# ============================================================
-# Enumerations
-# ============================================================
 
 class BlendModeSchema(str, Enum):
     """Compositing strategy for face paste-back."""
@@ -37,19 +28,11 @@ class EnhancerBackendSchema(str, Enum):
     none        = "none"
 
 
-# ============================================================
-# Shared base
-# ============================================================
-
 class BaseAPIRequest(BaseModel):
     """Common fields shared across all requests."""
 
     model_config = {"str_strip_whitespace": True, "extra": "forbid"}
 
-
-# ============================================================
-# Recognition request
-# ============================================================
 
 class RecognizeRequest(BaseAPIRequest):
     """
@@ -109,10 +92,6 @@ class RecognizeRequest(BaseAPIRequest):
             )
         return v
 
-
-# ============================================================
-# Registration request
-# ============================================================
 
 class RegisterRequest(BaseAPIRequest):
     """
@@ -177,10 +156,6 @@ class RegisterRequest(BaseAPIRequest):
             )
         return v
 
-
-# ============================================================
-# Swap request
-# ============================================================
 
 class SwapRequest(BaseAPIRequest):
     """
@@ -283,10 +258,6 @@ class SwapRequest(BaseAPIRequest):
             pass  # Not an error, just informational
         return self
 
-
-# ============================================================
-# Database management requests
-# ============================================================
 
 class DeleteIdentityRequest(BaseAPIRequest):
     """

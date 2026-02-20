@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# api/routers/swap.py
-# ============================================================
 # POST /api/v1/swap — face swap endpoint.
 #
 # Accepts two uploaded images (source + target), runs the full
@@ -11,14 +7,15 @@
 # Supported response modes:
 #   - File download  (default) — returns image/png
 #   - Base64 JSON   (return_base64=true) — returns SwapResponse JSON
-# ============================================================
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import io
 import time
 import uuid
+from functools import partial
 from pathlib import Path
 from typing import Optional
 
@@ -35,38 +32,53 @@ from api.schemas.responses import (
     SwappedFaceInfo,
     SwapTimingBreakdown,
 )
+from api.metrics import SWAP_FACE_COUNT
+from utils.circuit_breaker import CircuitBreaker, CircuitOpenError
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 router = APIRouter(tags=["Face Swap"])
 
+_detector_breaker = CircuitBreaker("detector", failure_threshold=5, recovery_timeout=30.0)
+_swapper_breaker = CircuitBreaker("swapper", failure_threshold=5, recovery_timeout=30.0)
 
-# ============================================================
-# Helpers
-# ============================================================
 
-_MAX_IMAGE_DIMENSION = 4096
+def _get_upload_limits() -> tuple[int, int, int]:
+    """Return (max_bytes, max_dim, min_dim) from settings or defaults."""
+    try:
+        from config.settings import settings  # noqa: PLC0415
+        return (
+            settings.api.max_upload_bytes,
+            settings.api.max_image_dimension,
+            settings.api.min_image_dimension,
+        )
+    except Exception:
+        return 10 * 1024 * 1024, 4096, 10
 
 
 def _decode_image(upload: UploadFile) -> np.ndarray:
-    """
-    Read an UploadFile and decode it to a BGR numpy array.
+    """Read an UploadFile and decode it to a BGR numpy array."""
+    max_bytes, max_dim, min_dim = _get_upload_limits()
 
-    Args:
-        upload: FastAPI UploadFile (JPEG, PNG, WebP, BMP, …).
-
-    Returns:
-        BGR uint8 numpy array.
-
-    Raises:
-        HTTPException 400: If the file cannot be decoded as an image
-            or exceeds the maximum allowed dimensions.
-    """
     try:
         data = upload.file.read()
-        arr  = np.frombuffer(data, dtype=np.uint8)
-        img  = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Could not read upload '{upload.filename}': {exc}",
+        )
+
+    if len(data) > max_bytes:
+        mb = max_bytes / (1024 * 1024)
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large ({len(data)} bytes). Maximum: {mb:.0f} MB.",
+        )
+
+    try:
+        arr = np.frombuffer(data, dtype=np.uint8)
+        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
         if img is None:
             raise ValueError("cv2.imdecode returned None")
     except Exception as exc:
@@ -76,10 +88,15 @@ def _decode_image(upload: UploadFile) -> np.ndarray:
         )
 
     h, w = img.shape[:2]
-    if h > _MAX_IMAGE_DIMENSION or w > _MAX_IMAGE_DIMENSION:
+    if h > max_dim or w > max_dim:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Image too large: {w}x{h}. Maximum dimension: {_MAX_IMAGE_DIMENSION}px.",
+            detail=f"Image too large: {w}x{h}. Maximum dimension: {max_dim}px.",
+        )
+    if h < min_dim or w < min_dim:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Image too small: {w}x{h}. Minimum dimension: {min_dim}px.",
         )
 
     return img
@@ -123,10 +140,6 @@ def _save_output(image: np.ndarray, output_dir: Path, request_id: str) -> str:
     return f"/api/v1/results/{filename}"
 
 
-# ============================================================
-# Endpoint
-# ============================================================
-
 @router.post(
     "/swap",
     summary="Face swap",
@@ -158,7 +171,6 @@ async def swap_faces(
     request:         Request,
     source_file:     UploadFile  = File(...,  description="Source image — the donor identity."),
     target_file:     UploadFile  = File(...,  description="Target image — the scene to modify."),
-    # ── Swap controls (form fields) ────────────────────────────────
     blend_mode:      str         = Form(default="poisson"),
     blend_alpha:     float       = Form(default=1.0,   ge=0.0, le=1.0),
     mask_feather:    int         = Form(default=20,    ge=0,   le=100),
@@ -191,7 +203,6 @@ async def swap_faces(
         f"blend={blend_mode} enhance={enhance} swap_all={swap_all_faces}"
     )
 
-    # ── Ethics gate ──────────────────────────────────────────────────
     if not consent:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -201,7 +212,6 @@ async def swap_faces(
             ),
         )
 
-    # ── Validate pipeline components ─────────────────────────────────
     state = request.app.state
     for component in ("detector", "recognizer", "swapper"):
         obj = getattr(state, component, None)
@@ -211,11 +221,9 @@ async def swap_faces(
                 detail=f"Pipeline component '{component}' is not ready.",
             )
 
-    # ── Decode images ────────────────────────────────────────────────
     source_image = _decode_image(source_file)
     target_image = _decode_image(target_file)
 
-    # ── Parse blend mode ─────────────────────────────────────────────
     try:
         blend_mode_enum = BlendModeSchema(blend_mode)
     except ValueError:
@@ -226,10 +234,22 @@ async def swap_faces(
         )
     core_blend_mode = _blend_mode_to_core(blend_mode_enum)
 
-    # ── Stage 1: Detect + embed source face ──────────────────────────
+    loop = asyncio.get_running_loop()
+    executor = getattr(state, "executor", None)
+
     try:
-        source_detection = state.detector.detect(source_image)
+        _detector_breaker.check()
+        source_detection = await loop.run_in_executor(
+            executor, state.detector.detect, source_image,
+        )
+        _detector_breaker.record_success()
+    except CircuitOpenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        )
     except Exception as exc:
+        _detector_breaker.record_failure()
         logger.error(f"[{request_id[:8]}] Source detection failed: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -248,8 +268,9 @@ async def swap_faces(
 
     try:
         src_bbox = (int(src_face.x1), int(src_face.y1), int(src_face.x2), int(src_face.y2))
-        source_embedding = state.recognizer.get_embedding(
-            source_image, bbox=src_bbox
+        source_embedding = await loop.run_in_executor(
+            executor,
+            partial(state.recognizer.get_embedding, source_image, bbox=src_bbox),
         )
     except Exception as exc:
         logger.error(f"[{request_id[:8]}] Embedding extraction failed: {exc}")
@@ -264,10 +285,19 @@ async def swap_faces(
             detail="Failed to extract a valid embedding from the source face.",
         )
 
-    # ── Stage 2: Detect target faces ─────────────────────────────────
     try:
-        target_detection = state.detector.detect(target_image)
+        _detector_breaker.check()
+        target_detection = await loop.run_in_executor(
+            executor, state.detector.detect, target_image,
+        )
+        _detector_breaker.record_success()
+    except CircuitOpenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        )
     except Exception as exc:
+        _detector_breaker.record_failure()
         logger.error(f"[{request_id[:8]}] Target detection failed: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -280,17 +310,21 @@ async def swap_faces(
             detail="No face detected in the target image.",
         )
 
-    # ── Stage 3: Swap ────────────────────────────────────────────────
     try:
+        _swapper_breaker.check()
         if swap_all_faces:
-            batch_result = state.swapper.swap_all(
-                source_embedding=source_embedding,
-                target_image=target_image,
-                target_detection=target_detection,
-                blend_mode=core_blend_mode,
-                blend_alpha=blend_alpha,
-                mask_feather=mask_feather,
-                max_faces=max_faces,
+            batch_result = await loop.run_in_executor(
+                executor,
+                partial(
+                    state.swapper.swap_all,
+                    source_embedding=source_embedding,
+                    target_image=target_image,
+                    target_detection=target_detection,
+                    blend_mode=core_blend_mode,
+                    blend_alpha=blend_alpha,
+                    mask_feather=mask_feather,
+                    max_faces=max_faces,
+                ),
             )
             output_image  = batch_result.output_image
             swap_results  = batch_result.swap_results
@@ -299,27 +333,34 @@ async def swap_faces(
             tgt_idx  = min(target_face_index, len(target_detection.faces) - 1)
             tgt_face = target_detection.faces[tgt_idx]
 
-            single_result = state.swapper.swap(
-                CoreSwapRequest(
-                    source_embedding=source_embedding,
-                    target_image=target_image,
-                    target_face=tgt_face,
-                    blend_mode=core_blend_mode,
-                    blend_alpha=blend_alpha,
-                    mask_feather=mask_feather,
-                )
+            swap_req = CoreSwapRequest(
+                source_embedding=source_embedding,
+                target_image=target_image,
+                target_face=tgt_face,
+                blend_mode=core_blend_mode,
+                blend_alpha=blend_alpha,
+                mask_feather=mask_feather,
+            )
+            single_result = await loop.run_in_executor(
+                executor, state.swapper.swap, swap_req,
             )
             output_image = single_result.output_image
             swap_results = [single_result]
+        _swapper_breaker.record_success()
 
+    except CircuitOpenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        )
     except Exception as exc:
+        _swapper_breaker.record_failure()
         logger.error(f"[{request_id[:8]}] Swap failed: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Face swap failed: {exc}",
         )
 
-    # ── Stage 4: Enhancement (optional) ─────────────────────────────
     enhanced = False
     enhancer_obj = getattr(state, "enhancer", None)
     if enhance and enhancer_obj is not None and getattr(enhancer_obj, "is_loaded", False):
@@ -331,7 +372,9 @@ async def swap_faces(
                 full_frame=True,
                 paste_back=True,
             )
-            enh_result = enhancer_obj.enhance(enh_req)
+            enh_result = await loop.run_in_executor(
+                executor, enhancer_obj.enhance, enh_req,
+            )
             if enh_result.success:
                 output_image = enh_result.output_image
                 enhanced     = True
@@ -346,7 +389,6 @@ async def swap_faces(
             f"[{request_id[:8]}] enhance=True but no enhancer loaded — skipping."
         )
 
-    # ── Stage 5: Watermark ───────────────────────────────────────────
     watermarked = False
     if watermark:
         try:
@@ -366,7 +408,6 @@ async def swap_faces(
         except Exception as exc:
             logger.warning(f"[{request_id[:8]}] Watermark failed: {exc}")
 
-    # ── Save output file ─────────────────────────────────────────────
     output_url: Optional[str] = None
     try:
         output_dir = Path(getattr(state, "output_dir", "output"))
@@ -374,7 +415,6 @@ async def swap_faces(
     except Exception as exc:
         logger.warning(f"[{request_id[:8]}] Could not save output: {exc}")
 
-    # ── Build per-face result info ───────────────────────────────────
     total_ms   = (time.perf_counter() - t_start) * 1000.0
     faces_info = []
     for sr in swap_results:
@@ -403,6 +443,8 @@ async def swap_faces(
 
     num_swapped = sum(1 for sr in swap_results if sr.success)
     num_failed  = len(swap_results) - num_swapped
+    SWAP_FACE_COUNT.labels(status="success").inc(num_swapped)
+    SWAP_FACE_COUNT.labels(status="failed").inc(num_failed)
 
     logger.info(
         f"[{request_id[:8]}] Swap complete | "
@@ -411,7 +453,6 @@ async def swap_faces(
         f"total={total_ms:.1f}ms"
     )
 
-    # ── Return response ───────────────────────────────────────────────
     if return_base64:
         img_bytes = _encode_image_bytes(output_image, ".png")
         b64_str   = base64.b64encode(img_bytes).decode("utf-8")

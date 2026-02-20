@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# api/routers/health.py
-# ============================================================
 # GET /api/v1/health — liveness + readiness check endpoint.
 #
 # Returns overall API status plus per-component health for
@@ -13,7 +9,6 @@
 #   - Kubernetes readiness / liveness probes
 #   - docker-compose depends_on healthcheck
 #   - Streamlit UI status indicator
-# ============================================================
 
 from __future__ import annotations
 
@@ -36,10 +31,6 @@ router = APIRouter(tags=["Health"])
 # Module-level start time for uptime calculation
 _START_TIME: float = time.perf_counter()
 
-
-# ============================================================
-# Endpoint
-# ============================================================
 
 @router.get(
     "/health",
@@ -69,7 +60,6 @@ async def health_check(request: Request) -> HealthResponse:
     """
     uptime = (time.perf_counter() - _START_TIME)
 
-    # ── Collect per-component health ────────────────────────────────
     components: Dict[str, ComponentHealth] = {}
     overall = ComponentStatus.OK
 
@@ -116,7 +106,6 @@ async def health_check(request: Request) -> HealthResponse:
     ):
         overall = ComponentStatus.DEGRADED
 
-    # ── App metadata ─────────────────────────────────────────────────
     try:
         from config.settings import settings  # noqa: PLC0415
         version     = settings.app_version
@@ -135,10 +124,6 @@ async def health_check(request: Request) -> HealthResponse:
         components=components,
     )
 
-
-# ============================================================
-# Helpers
-# ============================================================
 
 def _check_component(
     state,
