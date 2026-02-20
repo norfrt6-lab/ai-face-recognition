@@ -605,7 +605,10 @@ class VideoPipeline:
 
         max_w, max_h = max_res
         scale = min(max_w / w, max_h / h, 1.0)
-        return (int(w * scale), int(h * scale))
+        # Round down to even numbers — many codecs (H.264) require even dims
+        new_w = int(w * scale) & ~1
+        new_h = int(h * scale) & ~1
+        return (max(2, new_w), max(2, new_h))
 
     @staticmethod
     def _add_watermark(
