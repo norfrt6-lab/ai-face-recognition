@@ -45,12 +45,13 @@ def _post_recognize(
     filename: str,
     return_attributes: bool = True,
     similarity_threshold: Optional[float] = None,
+    consent: bool = False,
 ) -> Optional[Dict]:
     """Call POST /api/v1/recognize and return the parsed JSON (or None on error)."""
     url = f"{_api_url()}/api/v1/recognize"
 
     data: Dict[str, Any] = {
-        "consent":           "true",
+        "consent":           str(consent).lower(),
         "return_attributes": str(return_attributes).lower(),
         "top_k":             "5",
     }
@@ -83,13 +84,14 @@ def _post_register(
     name: str,
     identity_id: Optional[str] = None,
     overwrite: bool = False,
+    consent: bool = False,
 ) -> Optional[Dict]:
     """Call POST /api/v1/register and return the parsed JSON (or None on error)."""
     url = f"{_api_url()}/api/v1/register"
 
     data: Dict[str, Any] = {
         "name":      name,
-        "consent":   "true",
+        "consent":   str(consent).lower(),
         "overwrite": str(overwrite).lower(),
     }
     if identity_id:
@@ -296,9 +298,9 @@ def _render_recognize_section() -> None:
         
         # Consent checkbox
         consent = st.checkbox(
-            "✅ I confirm I have explicit consent from all individuals in this image.",
+            "I confirm I have explicit consent from all individuals in this image.",
             key="recog_consent",
-            value=True,
+            value=False,
         )
 
     with col_settings:
@@ -353,6 +355,7 @@ def _render_recognize_section() -> None:
                 filename=uploaded.name,
                 return_attributes=show_attributes,
                 similarity_threshold=threshold_override,
+                consent=consent,
             )
             elapsed = (time.perf_counter() - t0) * 1000
         if result is not None:
@@ -533,6 +536,7 @@ def _render_register_section() -> None:
             name=name.strip(),
             identity_id=identity_id.strip() or None,
             overwrite=overwrite,
+            consent=consent_check,
         )
 
     if result:
