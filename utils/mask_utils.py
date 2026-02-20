@@ -432,6 +432,13 @@ def crop_mask_to_bbox(mask: Mask, bbox: BBox) -> Mask:
     return result
 
 
+def _assert_same_hw(*arrays: np.ndarray) -> None:
+    """Verify that all arrays share the same (H, W) dimensions."""
+    shapes = [a.shape[:2] for a in arrays]
+    if len(set(shapes)) != 1:
+        raise ValueError(f"All arrays must have the same H,W but got {shapes}")
+
+
 def apply_mask_blend(
     src: Frame,
     dst: Frame,
