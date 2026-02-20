@@ -37,6 +37,33 @@ setup_from_settings()
 logger = get_logger(__name__)
 
 
+def _warn_unsafe_defaults(settings) -> None:
+    """Log warnings when the app starts with unsafe or missing configuration."""
+    if settings is None:
+        logger.warning(
+            "APPLICATION STARTED WITHOUT SETTINGS — all components use "
+            "hardcoded defaults. Auth is DISABLED, watermarking is unknown, "
+            "and CORS allows only localhost. Set a valid .env or environment "
+            "variables before deploying to production."
+        )
+        return
+
+    warnings = []
+    if not settings.api.api_keys:
+        warnings.append("API key authentication is DISABLED (API_API_KEYS is empty)")
+    if not settings.ethics.require_consent:
+        warnings.append("Consent requirement is DISABLED (ETHICS_REQUIRE_CONSENT=false)")
+    if not settings.ethics.watermark_output:
+        warnings.append("Output watermarking is DISABLED (ETHICS_WATERMARK_OUTPUT=false)")
+    if settings.api.cors_origins == ["*"]:
+        warnings.append("CORS allows ALL origins (API_CORS_ORIGINS='*')")
+    if settings.environment == "development":
+        warnings.append("Running in DEVELOPMENT mode")
+
+    for w in warnings:
+        logger.warning(f"[UNSAFE DEFAULT] {w}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
@@ -63,6 +90,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.warning(f"Could not load settings: {exc} — using defaults.")
         settings = None
+
+    # Warn about unsafe configuration at startup
+    _warn_unsafe_defaults(settings)
 
     output_dir = (
         Path(settings.storage.output_dir)
