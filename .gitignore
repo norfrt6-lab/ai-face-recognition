@@ -40,6 +40,9 @@ models/*.pkl
 models/*.safetensors
 models/*.bin
 models/buffalo_l/
+models/buffalo_l.zip
+models/facexlib/
+models/models/
 models/GFPGANv1.4.pth
 models/codeformer.pth
 
