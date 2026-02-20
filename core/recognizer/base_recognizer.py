@@ -389,7 +389,9 @@ def average_embeddings(embeddings: List[np.ndarray]) -> np.ndarray:
         embeddings: List of (D,) float32 arrays, all same dimension.
 
     Returns:
-        L2-normalised mean embedding of shape (D,).
+        L2-normalised mean embedding of shape (D,).  If the mean vector
+        has near-zero norm (e.g. cancelling vectors), the result is
+        returned **unnormalised** to avoid division-by-zero.
 
     Raises:
         ValueError: If the list is empty or shapes are inconsistent.

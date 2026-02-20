@@ -82,7 +82,9 @@ def get_video_meta(video_path: str | Path) -> VideoMeta:
     try:
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        if not fps or fps <= 0:
+            fps = 25.0
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         duration_sec = frame_count / fps if fps > 0 else 0.0
         fourcc_int = int(cap.get(cv2.CAP_PROP_FOURCC))
@@ -651,8 +653,7 @@ def process_video(
                 # Write to a temp output then replace
                 tmp_output = output_path.with_suffix(".merged.mp4")
                 merge_audio_video(output_path, extracted, tmp_output)
-                output_path.unlink(missing_ok=True)
-                tmp_output.rename(output_path)
+                tmp_output.replace(output_path)
         finally:
             tmp_audio.unlink(missing_ok=True)
 

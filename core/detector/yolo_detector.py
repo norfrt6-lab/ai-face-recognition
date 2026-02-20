@@ -728,8 +728,10 @@ class YOLOFaceDetector(BaseDetector):
             lm = None
             if landmarks_array is not None and i < len(landmarks_array):
                 lm = landmarks_array[i].astype(np.float32)  # (5, 2)
-                # If all zeros, landmarks were not detected
-                if lm.sum() == 0:
+                # Validate shape and discard if all zeros or contains NaN/Inf
+                if lm.shape != (5, 2):
+                    lm = None
+                elif not np.isfinite(lm).all() or lm.sum() == 0:
                     lm = None
 
             face_boxes.append(

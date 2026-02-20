@@ -24,7 +24,10 @@ import numpy as np
 
 from core.detector.base_detector import DetectionResult, FaceBox
 from core.recognizer.base_recognizer import FaceEmbedding
+from utils.logger import get_logger
 from utils.mask_utils import ellipse_mask
+
+logger = get_logger(__name__)
 
 
 class BlendMode(Enum):
@@ -343,6 +346,12 @@ def estimate_landmarks_from_bbox(bbox: FaceBox) -> np.ndarray:
     w = x2 - x1
     h = y2 - y1
 
+    if w <= 0 or h <= 0:
+        raise ValueError(
+            f"estimate_landmarks_from_bbox: degenerate bbox "
+            f"({x1},{y1})-({x2},{y2}) has width={w}, height={h}"
+        )
+
     # Typical facial proportions as fractions of bbox
     lm = np.array(
         [
@@ -387,6 +396,9 @@ def paste_back(
         blend_mask = _make_crop_mask(crop_size, feather)
 
     inv_M = cv2.invertAffineTransform(affine_matrix)
+    if not np.isfinite(inv_M).all():
+        logger.warning("paste_back: singular affine matrix, returning original image.")
+        return original.copy()
 
     warped_face = cv2.warpAffine(
         swapped_crop,

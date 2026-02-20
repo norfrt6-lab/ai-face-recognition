@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import List, Literal, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Project root: two levels up from this file (config/settings.py)
@@ -215,7 +215,7 @@ class APISettings(BaseSettings):
     # Upload constraints (derived from max_upload_size_mb)
     max_upload_bytes: int = Field(
         default=50 * 1024 * 1024,
-        description="Max upload size in bytes (default 50 MB, matches max_upload_size_mb).",
+        description="Max upload size in bytes (auto-derived from max_upload_size_mb).",
     )
     max_image_dimension: int = Field(
         default=4096,
@@ -225,6 +225,11 @@ class APISettings(BaseSettings):
         default=10,
         description="Minimum width or height for uploaded images in pixels.",
     )
+
+    @model_validator(mode="after")
+    def _derive_upload_bytes(self) -> "APISettings":
+        self.max_upload_bytes = self.max_upload_size_mb * 1024 * 1024
+        return self
 
 
 class UISettings(BaseSettings):

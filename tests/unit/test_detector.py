@@ -13,7 +13,7 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 from typing import List, Optional
-from unittest.mock import MagicMock, PropertyMock, patch
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -636,10 +636,7 @@ class TestBaseDetector:
         assert isinstance(result, str)
         assert len(result) > 0
 
-    @patch("core.detector.base_detector.BaseDetector._resolve_device")
-    def test_resolve_device_auto_cuda_if_available(self, mock_resolve):
-        # Simulate CUDA available
-        mock_resolve.return_value = "cuda"
-        det = ConcreteDetector.__new__(ConcreteDetector)
-        det.device = "cuda"
-        assert det.device == "cuda"
+    def test_resolve_device_auto_cuda_if_available(self):
+        # Verify that _resolve_device("auto") returns a known device string
+        result = BaseDetector._resolve_device("auto")
+        assert result in ("cuda", "cpu", "mps")

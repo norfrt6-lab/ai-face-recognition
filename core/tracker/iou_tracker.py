@@ -36,7 +36,7 @@ class IoUTracker:
         self._tracks: Dict[int, _Track] = {}
         self._next_id: int = 1
 
-    def update(self, faces: List[FaceBox]) -> List[FaceBox]:
+    def update(self, faces: List[FaceBox]) -> List[Optional[FaceBox]]:
         """
         Match *faces* against existing tracks and return a new list with
         ``track_id`` populated on each face.
@@ -103,7 +103,7 @@ class IoUTracker:
                 self._tracks[tid].age += 1
         self._prune()
 
-        return result
+        return [r for r in result if r is not None]
 
     def reset(self) -> None:
         """Clear all tracks and reset ID counter."""

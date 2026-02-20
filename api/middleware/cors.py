@@ -169,7 +169,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if now - self._last_cleanup > self._cleanup_interval:
             self._last_cleanup = now
             cutoff_evict = now - self.window_seconds
-            stale = [ip for ip, dq in self._windows.items() if not dq or dq[-1] <= cutoff_evict]
+            stale = [ip for ip, dq in self._windows.items() if not dq or dq[0] <= cutoff_evict]
             for ip in stale:
                 del self._windows[ip]
 

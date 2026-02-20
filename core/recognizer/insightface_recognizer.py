@@ -216,6 +216,10 @@ class InsightFaceRecognizer(BaseRecognizer):
 
         try:
             if landmarks is not None and landmarks.shape == (5, 2):
+                if landmarks.dtype not in (np.float32, np.float64):
+                    landmarks = landmarks.astype(np.float32)
+                elif landmarks.dtype == np.float64:
+                    landmarks = landmarks.astype(np.float32)
                 return self._embed_aligned(image, landmarks=landmarks, t0=t0)
 
             if bbox is not None:
@@ -533,7 +537,10 @@ class InsightFaceRecognizer(BaseRecognizer):
         best_face = max(faces, key=lambda f: f.det_score)
         emb = self._face_to_embedding(best_face, face_index=0)
 
-        # Attach original bbox to the embedding
+        # Attach original bbox (the crop region) to the embedding so callers
+        # know which region of the source image this embedding came from.
+        # Note: the embedding was computed from the detected face *within*
+        # the cropped region, so this bbox is approximate.
         if emb is not None:
             emb.bbox = bbox
 
@@ -688,6 +695,7 @@ class InsightFaceRecognizer(BaseRecognizer):
         output_size: int = 112,
     ) -> np.ndarray:
         """Affine-align a face to the ArcFace canonical crop using shared norm_crop."""
+        landmarks = landmarks.astype(np.float32)
         crop, M = norm_crop(image, landmarks, output_size=output_size)
         if crop is None:
             raise ValueError("Could not estimate affine transform from landmarks.")
