@@ -242,8 +242,9 @@ class MetricsMiddleware(BaseHTTPMiddleware):
 def configure_middleware(app: FastAPI) -> None:
     """Attach all middleware to *app* in the correct order.
 
-    Starlette applies middleware in reverse registration order, so the
-    first-registered middleware is outermost.
+    Starlette applies middleware in **reverse** registration order, so
+    the **last** registered middleware is the outermost (runs first on
+    request). We register from innermost to outermost.
     """
     try:
         from config.settings import settings  # noqa: PLC0415
@@ -255,17 +256,10 @@ def configure_middleware(app: FastAPI) -> None:
         workers = 1
         api_keys = []
 
-    # 1. Request ID (outermost — always runs)
-    app.add_middleware(RequestIDMiddleware)
+    # 1. CORS (innermost — runs closest to the route handler)
+    configure_cors(app)
 
-    # 2. Prometheus metrics
-    app.add_middleware(MetricsMiddleware)
-
-    # 3. API key auth (no-op when api_keys is empty)
-    from api.middleware.auth import APIKeyMiddleware  # noqa: PLC0415
-    app.add_middleware(APIKeyMiddleware, api_keys=api_keys)
-
-    # 4. Rate limiter
+    # 2. Rate limiter
     if workers > 1:
         logger.warning(
             f"In-memory rate limiter is active with API_WORKERS={workers}. "
@@ -281,8 +275,15 @@ def configure_middleware(app: FastAPI) -> None:
         exclude_paths={"/api/v1/health", "/docs", "/openapi.json", "/redoc"},
     )
 
-    # 5. CORS (innermost — runs closest to the route handler)
-    configure_cors(app)
+    # 3. API key auth (no-op when api_keys is empty)
+    from api.middleware.auth import APIKeyMiddleware  # noqa: PLC0415
+    app.add_middleware(APIKeyMiddleware, api_keys=api_keys)
+
+    # 4. Prometheus metrics
+    app.add_middleware(MetricsMiddleware)
+
+    # 5. Request ID (outermost — always runs first)
+    app.add_middleware(RequestIDMiddleware)
 
     from api.metrics import METRICS_AVAILABLE  # noqa: PLC0415
     auth_status = "on" if api_keys else "off"
