@@ -47,7 +47,7 @@ _MODEL_REGISTRY: Dict[str, ModelSpec] = {
     "yolov8n-face": ModelSpec(
         name="YOLOv8n-face",
         filename="yolov8n-face.pt",
-        url="https://github.com/akanametov/yolo-face/releases/download/v0.0.0/yolov8n-face.pt",
+        url="https://github.com/akanametov/yolo-face/releases/download/1.0.0/yolov8n-face.pt",
         mirrors=[
             "https://huggingface.co/arnabdhar/YOLOv8-Face-Detection/resolve/main/model.pt",
         ],

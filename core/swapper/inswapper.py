@@ -410,8 +410,7 @@ class InSwapper(BaseSwapper):
         Convert a BGR uint8 crop to a normalised (1, 3, 128, 128)
         float32 tensor suitable for inswapper input.
 
-        Normalisation:  pixel = (pixel / 255.0 - 0.5) / 0.5
-                        → range [-1.0, 1.0]
+        Normalisation:  pixel / 255.0 → range [0.0, 1.0]
 
         Args:
             crop: (H, W, 3) BGR uint8 image.
@@ -422,9 +421,8 @@ class InSwapper(BaseSwapper):
         # BGR → RGB
         rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
 
-        # HWC → CHW, [0, 255] → [-1.0, 1.0]
-        tensor = rgb.astype(np.float32) / 255.0  # [0, 1]
-        tensor = (tensor - _MEAN) / _STD  # [-1, 1]
+        # HWC → CHW, [0, 255] → [0.0, 1.0]
+        tensor = rgb.astype(np.float32) / 255.0
         tensor = tensor.transpose(2, 0, 1)  # CHW
         tensor = np.expand_dims(tensor, axis=0)  # NCHW
         return tensor
@@ -435,16 +433,16 @@ class InSwapper(BaseSwapper):
         Convert the model output tensor back to a BGR uint8 image.
 
         Args:
-            output: (1, 3, H, W) float32 tensor in [-1.0, 1.0].
+            output: (1, 3, H, W) float32 tensor in [0.0, 1.0].
 
         Returns:
             (H, W, 3) BGR uint8 image.
         """
         # Remove batch dim, CHW → HWC
-        img = output[0].transpose(1, 2, 0)  # HWC, [-1, 1]
+        img = output[0].transpose(1, 2, 0)  # HWC, [0, 1]
 
-        # [-1, 1] → [0, 255]
-        img = (img * _STD + _MEAN) * 255.0
+        # [0, 1] → [0, 255]
+        img = img * 255.0
         img = np.clip(img, 0, 255).astype(np.uint8)
 
         # RGB → BGR
