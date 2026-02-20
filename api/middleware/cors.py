@@ -12,7 +12,7 @@ from __future__ import annotations
 import time
 import uuid
 from collections import defaultdict, deque
-from typing import Callable, Dict, Deque
+from typing import Callable, Deque, Dict
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,11 +37,12 @@ def configure_cors(app: FastAPI) -> None:
     """
     try:
         from config.settings import settings  # noqa: PLC0415
-        origins      = settings.api.cors_origins
-        max_age      = 600
+
+        origins = settings.api.cors_origins
+        max_age = 600
     except Exception:
-        origins      = ["http://localhost:8501", "http://127.0.0.1:8501"]
-        max_age      = 600
+        origins = ["http://localhost:8501", "http://127.0.0.1:8501"]
+        max_age = 600
 
     app.add_middleware(
         CORSMiddleware,
@@ -139,14 +140,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
         app: ASGIApp,
-        max_requests:   int   = 60,
+        max_requests: int = 60,
         window_seconds: float = 60.0,
-        exclude_paths:  set   = frozenset({"/api/v1/health", "/docs", "/openapi.json", "/redoc"}),
+        exclude_paths: set = frozenset({"/api/v1/health", "/docs", "/openapi.json", "/redoc"}),
     ) -> None:
         super().__init__(app)
-        self.max_requests   = max_requests
+        self.max_requests = max_requests
         self.window_seconds = window_seconds
-        self.exclude_paths  = set(exclude_paths)
+        self.exclude_paths = set(exclude_paths)
 
         # ip → deque of request timestamps (float, seconds since epoch)
         self._windows: Dict[str, Deque[float]] = defaultdict(deque)
@@ -162,7 +163,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Resolve client IP
         client_ip = self._get_client_ip(request)
-        now       = time.time()
+        now = time.time()
 
         # Periodic eviction of stale IP entries to bound memory
         if now - self._last_cleanup > self._cleanup_interval:
@@ -174,7 +175,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Hard cap on tracked IPs to prevent memory exhaustion
         if len(self._windows) >= self._max_tracked_ips and client_ip not in self._windows:
-            logger.warning(f"Rate limiter: max tracked IPs ({self._max_tracked_ips}) reached, rejecting new IP.")
+            logger.warning(
+                f"Rate limiter: max tracked IPs ({self._max_tracked_ips}) reached, rejecting new IP."
+            )
             return Response(
                 content='{"error":"rate_limit_exceeded","message":"Server under heavy load. Try again later."}',
                 status_code=429,
@@ -191,7 +194,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Check limit
         if len(window) >= self.max_requests:
-            oldest      = window[0]
+            oldest = window[0]
             retry_after = int(self.window_seconds - (now - oldest)) + 1
             logger.warning(
                 f"Rate limit exceeded | ip={client_ip} | "
@@ -248,6 +251,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             REQUEST_COUNT.labels(method=method, endpoint=endpoint, status=sc).inc()
             ACTIVE_REQUESTS.dec()
 
+
 def configure_middleware(app: FastAPI) -> None:
     """Attach all middleware to *app* in the correct order.
 
@@ -257,6 +261,7 @@ def configure_middleware(app: FastAPI) -> None:
     """
     try:
         from config.settings import settings  # noqa: PLC0415
+
         rpm = settings.api.rate_limit_per_minute
         workers = settings.api.workers
         api_keys = settings.api.api_keys
@@ -286,6 +291,7 @@ def configure_middleware(app: FastAPI) -> None:
 
     # 3. API key auth (no-op when api_keys is empty)
     from api.middleware.auth import APIKeyMiddleware  # noqa: PLC0415
+
     app.add_middleware(APIKeyMiddleware, api_keys=api_keys)
 
     # 4. Prometheus metrics
@@ -295,6 +301,7 @@ def configure_middleware(app: FastAPI) -> None:
     app.add_middleware(RequestIDMiddleware)
 
     from api.metrics import METRICS_AVAILABLE  # noqa: PLC0415
+
     auth_status = "on" if api_keys else "off"
     metrics_status = "on" if METRICS_AVAILABLE else "off (install prometheus-client)"
     logger.info(

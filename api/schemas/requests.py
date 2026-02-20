@@ -16,16 +16,18 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 class BlendModeSchema(str, Enum):
     """Compositing strategy for face paste-back."""
-    alpha        = "alpha"
-    poisson      = "poisson"
+
+    alpha = "alpha"
+    poisson = "poisson"
     masked_alpha = "masked_alpha"
 
 
 class EnhancerBackendSchema(str, Enum):
     """Which face enhancement model to apply after swap."""
-    gfpgan      = "gfpgan"
-    codeformer  = "codeformer"
-    none        = "none"
+
+    gfpgan = "gfpgan"
+    codeformer = "codeformer"
+    none = "none"
 
 
 class BaseAPIRequest(BaseModel):

@@ -7,10 +7,10 @@ import numpy as np
 from loguru import logger
 
 # ── Type aliases ─────────────────────────────────────────────
-Frame     = np.ndarray          # (H, W, 3) BGR uint8
-Mask      = np.ndarray          # (H, W)    uint8  0-255
-BBox      = Tuple[int, int, int, int]   # (x1, y1, x2, y2)
-Landmarks = np.ndarray          # (N, 2) float32  (x, y) pairs
+Frame = np.ndarray  # (H, W, 3) BGR uint8
+Mask = np.ndarray  # (H, W)    uint8  0-255
+BBox = Tuple[int, int, int, int]  # (x1, y1, x2, y2)
+Landmarks = np.ndarray  # (N, 2) float32  (x, y) pairs
 
 
 def ellipse_mask(
@@ -39,10 +39,10 @@ def ellipse_mask(
     """
     mask = np.zeros((height, width), dtype=np.uint8)
 
-    cx = center[0] if center else width  // 2
+    cx = center[0] if center else width // 2
     cy = center[1] if center else height // 2
-    ax = axes[0]   if axes   else int(width  * 0.45)
-    ay = axes[1]   if axes   else int(height * 0.48)
+    ax = axes[0] if axes else int(width * 0.45)
+    ay = axes[1] if axes else int(height * 0.48)
 
     cv2.ellipse(mask, (cx, cy), (ax, ay), angle, 0, 360, 255, -1)
 
@@ -84,7 +84,7 @@ def rectangle_mask(
 
     x1 = max(0, x1 + padding)
     y1 = max(0, y1 + padding)
-    x2 = min(width,  x2 - padding)
+    x2 = min(width, x2 - padding)
     y2 = min(height, y2 - padding)
 
     cv2.rectangle(mask, (x1, y1), (x2, y2), 255, -1)
@@ -216,7 +216,7 @@ def landmarks_region_mask(
         uint8 mask (H × W).
     """
     mask = np.zeros((height, width), dtype=np.uint8)
-    pts  = landmarks[region_indices].astype(np.int32)
+    pts = landmarks[region_indices].astype(np.int32)
     cv2.fillConvexPoly(mask, cv2.convexHull(pts), 255)
 
     if feather > 0:
@@ -260,13 +260,13 @@ def face_bbox_mask(
 
     # Apply padding
     px1 = max(0, x1 - int(bw * padding_sides))
-    px2 = min(frame_width,  x2 + int(bw * padding_sides))
+    px2 = min(frame_width, x2 + int(bw * padding_sides))
     py1 = max(0, y1 - int(bh * padding_top))
     py2 = min(frame_height, y2 + int(bh * padding_bottom))
 
     mask = np.zeros((frame_height, frame_width), dtype=np.uint8)
-    rw   = px2 - px1
-    rh   = py2 - py1
+    rw = px2 - px1
+    rh = py2 - py1
 
     if shape == "ellipse":
         cx = (px1 + px2) // 2
@@ -300,10 +300,7 @@ def multi_face_mask(
     """
     combined = np.zeros((frame_height, frame_width), dtype=np.uint8)
     for bbox in bboxes:
-        face_m = face_bbox_mask(
-            frame_height, frame_width, bbox,
-            feather=feather, shape=shape
-        )
+        face_m = face_bbox_mask(frame_height, frame_width, bbox, feather=feather, shape=shape)
         combined = np.maximum(combined, face_m)
     return combined
 
@@ -388,8 +385,10 @@ def combine_masks(
         return cv2.subtract(mask_a, mask_b)
     if mode == "xor":
         return cv2.bitwise_xor(mask_a, mask_b)
-    raise ValueError(f"Unknown mask combine mode: {mode!r}. "
-                     f"Choose 'union' | 'intersection' | 'subtract' | 'xor'.")
+    raise ValueError(
+        f"Unknown mask combine mode: {mode!r}. "
+        f"Choose 'union' | 'intersection' | 'subtract' | 'xor'."
+    )
 
 
 def threshold_mask(
@@ -461,7 +460,7 @@ def apply_mask_blend(
     """
     _assert_same_hw(src, dst, mask)
     alpha = mask.astype(np.float32) / 255.0
-    alpha = alpha[:, :, np.newaxis]   # broadcast over channels
+    alpha = alpha[:, :, np.newaxis]  # broadcast over channels
     blended = src.astype(np.float32) * alpha + dst.astype(np.float32) * (1.0 - alpha)
     return np.clip(blended, 0, 255).astype(np.uint8)
 
@@ -533,8 +532,8 @@ def region_copy_blend(
     x1, y1, x2, y2 = bbox
     result = dst.copy()
 
-    src_roi  = src[y1:y2,  x1:x2]
-    dst_roi  = dst[y1:y2,  x1:x2]
+    src_roi = src[y1:y2, x1:x2]
+    dst_roi = dst[y1:y2, x1:x2]
     mask_roi = mask[y1:y2, x1:x2]
 
     blended_roi = apply_mask_blend(src_roi, dst_roi, mask_roi)
@@ -571,7 +570,7 @@ def edge_aware_mask(
 
     # Use edges as inhibitor: erode mask near strong edges
     edge_dilated = dilate_mask(edges, radius=3)
-    inhibitor    = invert_mask(edge_dilated)
+    inhibitor = invert_mask(edge_dilated)
 
     refined = cv2.bitwise_and(base_mask, inhibitor)
     # Combine with original to avoid over-erosion
@@ -606,14 +605,14 @@ def skin_color_mask(
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
     # Heuristic skin colour range in HSV
-    lower = np.array([0,  20,  70], dtype=np.uint8)
+    lower = np.array([0, 20, 70], dtype=np.uint8)
     upper = np.array([20, 180, 255], dtype=np.uint8)
-    mask  = cv2.inRange(hsv, lower, upper)
+    mask = cv2.inRange(hsv, lower, upper)
 
     # Additional range for slightly darker / redder skin
     lower2 = np.array([170, 20, 70], dtype=np.uint8)
     upper2 = np.array([180, 180, 255], dtype=np.uint8)
-    mask2  = cv2.inRange(hsv, lower2, upper2)
+    mask2 = cv2.inRange(hsv, lower2, upper2)
 
     combined = cv2.bitwise_or(mask, mask2)
 
@@ -716,17 +715,16 @@ def visualize_mask(
     Returns:
         Visualised BGR frame (copy of original, not modified in-place).
     """
-    vis   = image.copy()
-    tint  = np.zeros_like(image, dtype=np.uint8)
+    vis = image.copy()
+    tint = np.zeros_like(image, dtype=np.uint8)
     tint[:] = color
 
     alpha_f = mask.astype(np.float32) / 255.0
     alpha_f = alpha_f[:, :, np.newaxis] * alpha
 
-    vis = (
-        vis.astype(np.float32) * (1.0 - alpha_f) +
-        tint.astype(np.float32) * alpha_f
-    ).astype(np.uint8)
+    vis = (vis.astype(np.float32) * (1.0 - alpha_f) + tint.astype(np.float32) * alpha_f).astype(
+        np.uint8
+    )
 
     if show_contour:
         hard = threshold_mask(mask, threshold=127)
@@ -755,14 +753,14 @@ def visualize_all_masks(
     """
     # Distinct BGR colours for up to 8 masks
     palette = [
-        (0, 200, 255),   # yellow
-        (0, 165, 255),   # orange
-        (0, 255, 0),     # green
-        (255, 0, 0),     # blue
-        (255, 0, 255),   # magenta
-        (0, 255, 255),   # cyan
-        (128, 0, 255),   # purple
-        (255, 128, 0),   # light blue
+        (0, 200, 255),  # yellow
+        (0, 165, 255),  # orange
+        (0, 255, 0),  # green
+        (255, 0, 0),  # blue
+        (255, 0, 255),  # magenta
+        (0, 255, 255),  # cyan
+        (128, 0, 255),  # purple
+        (255, 128, 0),  # light blue
     ]
     vis = image.copy()
     for i, mask in enumerate(masks):
@@ -806,6 +804,6 @@ def _draw_rounded_rect(
     cv2.circle(mask, (x2 - r, y2 - r), r, 255, -1)
 
     # Three rectangles to fill the body
-    cv2.rectangle(mask, (x1 + r, y1),     (x2 - r, y2),     255, -1)
-    cv2.rectangle(mask, (x1,     y1 + r), (x1 + r, y2 - r), 255, -1)
-    cv2.rectangle(mask, (x2 - r, y1 + r), (x2,     y2 - r), 255, -1)
+    cv2.rectangle(mask, (x1 + r, y1), (x2 - r, y2), 255, -1)
+    cv2.rectangle(mask, (x1, y1 + r), (x1 + r, y2 - r), 255, -1)
+    cv2.rectangle(mask, (x2 - r, y1 + r), (x2, y2 - r), 255, -1)

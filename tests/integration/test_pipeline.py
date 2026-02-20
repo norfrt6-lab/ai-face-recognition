@@ -19,11 +19,11 @@
 
 from __future__ import annotations
 
-import time
 import threading
+import time
 from pathlib import Path
 from typing import List, Optional
-from unittest.mock import MagicMock, patch, call, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, call, patch
 
 import cv2
 import numpy as np
@@ -31,10 +31,10 @@ import pytest
 
 from core.detector.base_detector import DetectionResult, FaceBox
 from core.enhancer.base_enhancer import (
+    EnhancementRequest,
     EnhancementResult,
     EnhancementStatus,
     EnhancerBackend,
-    EnhancementRequest,
 )
 from core.pipeline.face_pipeline import (
     FacePipeline,
@@ -72,7 +72,10 @@ def _rand_vec(dim: int = 512, seed: int = 42) -> np.ndarray:
 
 
 def _make_face_box(
-    x1=100, y1=80, x2=300, y2=320,
+    x1=100,
+    y1=80,
+    x2=300,
+    y2=320,
     confidence=0.92,
     face_index=0,
     with_landmarks=True,
@@ -80,11 +83,14 @@ def _make_face_box(
     lm = None
     if with_landmarks:
         lm = np.array(
-            [[150., 140.], [250., 140.], [200., 200.], [160., 270.], [240., 270.]],
+            [[150.0, 140.0], [250.0, 140.0], [200.0, 200.0], [160.0, 270.0], [240.0, 270.0]],
             dtype=np.float32,
         )
     return FaceBox(
-        x1=x1, y1=y1, x2=x2, y2=y2,
+        x1=x1,
+        y1=y1,
+        x2=x2,
+        y2=y2,
         confidence=confidence,
         face_index=face_index,
         landmarks=lm,
@@ -96,7 +102,10 @@ def _make_detection(n_faces: int = 1, empty: bool = False) -> DetectionResult:
         return DetectionResult(faces=[], image_width=640, image_height=480)
     faces = [
         _make_face_box(
-            x1=10 + i * 150, y1=10, x2=130 + i * 150, y2=130,
+            x1=10 + i * 150,
+            y1=10,
+            x2=130 + i * 150,
+            y2=130,
             face_index=i,
         )
         for i in range(n_faces)
@@ -124,10 +133,7 @@ def _make_swap_result(success: bool = True, img: Optional[np.ndarray] = None) ->
 
 
 def _make_batch_result(n_faces: int = 1, all_success: bool = True) -> BatchSwapResult:
-    results = [
-        _make_swap_result(success=all_success or (i == 0))
-        for i in range(n_faces)
-    ]
+    results = [_make_swap_result(success=all_success or (i == 0)) for i in range(n_faces)]
     return BatchSwapResult(
         output_image=_blank_image(),
         swap_results=results,
@@ -208,8 +214,8 @@ def _make_pipeline(
     ]
 
     recognizer = _mock_recognizer(embedding=embedding)
-    swapper    = _mock_swapper(success=swap_success, n_faces=n_target_faces)
-    enhancer   = _mock_enhancer(success=enhance_success) if with_enhancer else None
+    swapper = _mock_swapper(success=swap_success, n_faces=n_target_faces)
+    enhancer = _mock_enhancer(success=enhance_success) if with_enhancer else None
 
     return FacePipeline(
         detector=detector,
@@ -226,13 +232,13 @@ class TestPipelineConfig:
 
     def test_default_values(self):
         cfg = PipelineConfig()
-        assert cfg.blend_mode        == BlendMode.POISSON
-        assert cfg.blend_alpha       == 1.0
-        assert cfg.mask_feather      == 20
-        assert cfg.swap_all_faces    is False
+        assert cfg.blend_mode == BlendMode.POISSON
+        assert cfg.blend_alpha == 1.0
+        assert cfg.mask_feather == 20
+        assert cfg.swap_all_faces is False
         assert cfg.enable_enhancement is False
-        assert cfg.watermark         is True
-        assert cfg.require_consent   is True
+        assert cfg.watermark is True
+        assert cfg.require_consent is True
         assert cfg.save_intermediate is False
 
     def test_custom_values(self):
@@ -245,16 +251,16 @@ class TestPipelineConfig:
             watermark=False,
             require_consent=False,
         )
-        assert cfg.blend_mode        == BlendMode.ALPHA
-        assert cfg.blend_alpha       == 0.8
-        assert cfg.swap_all_faces    is True
+        assert cfg.blend_mode == BlendMode.ALPHA
+        assert cfg.blend_alpha == 0.8
+        assert cfg.swap_all_faces is True
         assert cfg.enable_enhancement is True
-        assert cfg.watermark         is False
-        assert cfg.require_consent   is False
+        assert cfg.watermark is False
+        assert cfg.require_consent is False
 
     def test_repr_contains_key_fields(self):
         cfg = PipelineConfig()
-        r   = repr(cfg)
+        r = repr(cfg)
         assert "POISSON" in r
         assert "swap_all" in r
 
@@ -281,8 +287,13 @@ class TestPipelineTiming:
     def test_all_fields_default_zero(self):
         t = PipelineTiming()
         for field in (
-            "detect_source_ms", "embed_source_ms", "detect_target_ms",
-            "swap_ms", "enhance_ms", "watermark_ms", "total_ms",
+            "detect_source_ms",
+            "embed_source_ms",
+            "detect_target_ms",
+            "swap_ms",
+            "enhance_ms",
+            "watermark_ms",
+            "total_ms",
         ):
             assert getattr(t, field) == 0.0
 
@@ -316,7 +327,7 @@ class TestPipelineTiming:
             detect_target_ms=5.0,
             embed_source_ms=5.0,
             swap_ms=5.0,
-            total_ms=10.0,   # less than sum
+            total_ms=10.0,  # less than sum
         )
         assert t.pipeline_overhead_ms >= 0.0
 
@@ -457,21 +468,21 @@ class TestApplyWatermark:
 class TestFacePipelineConstruction:
 
     def test_stores_components(self):
-        det  = _mock_detector()
-        rec  = _mock_recognizer()
+        det = _mock_detector()
+        rec = _mock_recognizer()
         swap = _mock_swapper()
-        p    = FacePipeline(detector=det, recognizer=rec, swapper=swap)
-        assert p.detector   is det
+        p = FacePipeline(detector=det, recognizer=rec, swapper=swap)
+        assert p.detector is det
         assert p.recognizer is rec
-        assert p.swapper    is swap
-        assert p.enhancer   is None
+        assert p.swapper is swap
+        assert p.enhancer is None
 
     def test_stores_enhancer(self):
-        det  = _mock_detector()
-        rec  = _mock_recognizer()
+        det = _mock_detector()
+        rec = _mock_recognizer()
         swap = _mock_swapper()
-        enh  = _mock_enhancer()
-        p    = FacePipeline(detector=det, recognizer=rec, swapper=swap, enhancer=enh)
+        enh = _mock_enhancer()
+        p = FacePipeline(detector=det, recognizer=rec, swapper=swap, enhancer=enh)
         assert p.enhancer is enh
 
     def test_default_config_used(self):
@@ -484,7 +495,7 @@ class TestFacePipelineConstruction:
 
     def test_custom_config_stored(self):
         cfg = PipelineConfig(blend_mode=BlendMode.ALPHA)
-        p   = FacePipeline(
+        p = FacePipeline(
             detector=_mock_detector(),
             recognizer=_mock_recognizer(),
             swapper=_mock_swapper(),
@@ -518,7 +529,7 @@ class TestFacePipelineConsentGate:
 
     def test_consent_denied_returns_target_image_copy(self):
         target = _blank_image()
-        p      = _make_pipeline()
+        p = _make_pipeline()
         result = p.run(_blank_image(), target, consent=False)
         assert result.output_image.shape == target.shape
 
@@ -530,18 +541,18 @@ class TestFacePipelineConsentGate:
 
     def test_require_consent_false_allows_without_consent(self):
         cfg = PipelineConfig(require_consent=False, watermark=False)
-        p   = _make_pipeline(config=cfg)
+        p = _make_pipeline(config=cfg)
         result = p.run(_blank_image(), _blank_image(), consent=False)
         assert result.status != PipelineStatus.CONSENT_DENIED
 
     def test_consent_true_passes_gate(self):
-        p      = _make_pipeline()
+        p = _make_pipeline()
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert result.status != PipelineStatus.CONSENT_DENIED
 
     def test_per_call_config_overrides_consent_requirement(self):
         cfg = PipelineConfig(require_consent=False, watermark=False)
-        p   = _make_pipeline()
+        p = _make_pipeline()
         result = p.run(_blank_image(), _blank_image(), consent=False, config=cfg)
         assert result.status != PipelineStatus.CONSENT_DENIED
 
@@ -568,7 +579,7 @@ class TestFacePipelineNoFace:
 
     def test_no_source_face_returns_target_image(self):
         target = _blank_image()
-        p      = _make_pipeline(source_empty=True)
+        p = _make_pipeline(source_empty=True)
         result = p.run(_blank_image(), target, consent=True)
         assert result.output_image.shape == target.shape
 
@@ -615,7 +626,7 @@ class TestFacePipelineSuccessfulSwap:
 
     def test_output_image_correct_shape(self):
         img = _blank_image(480, 640)
-        p   = _make_pipeline()
+        p = _make_pipeline()
         # Swap output is a new image from the mock
         result = p.run(img, img, consent=True)
         assert result.output_image.ndim == 3
@@ -642,7 +653,8 @@ class TestFacePipelineSuccessfulSwap:
 
     def test_request_id_is_uuid_format(self):
         import re
-        p      = _make_pipeline()
+
+        p = _make_pipeline()
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert re.match(
             r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
@@ -650,44 +662,44 @@ class TestFacePipelineSuccessfulSwap:
         )
 
     def test_timing_total_ms_nonzero(self):
-        p      = _make_pipeline()
+        p = _make_pipeline()
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert result.timing.total_ms >= 0
 
     def test_config_stored_in_result(self):
-        cfg    = PipelineConfig(blend_mode=BlendMode.ALPHA, watermark=False)
-        p      = _make_pipeline(config=cfg)
+        cfg = PipelineConfig(blend_mode=BlendMode.ALPHA, watermark=False)
+        p = _make_pipeline(config=cfg)
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert result.config is cfg
 
     def test_per_call_config_used(self):
-        p          = _make_pipeline()
-        per_call   = PipelineConfig(watermark=False, blend_mode=BlendMode.ALPHA)
-        result     = p.run(_blank_image(), _blank_image(), consent=True, config=per_call)
+        p = _make_pipeline()
+        per_call = PipelineConfig(watermark=False, blend_mode=BlendMode.ALPHA)
+        result = p.run(_blank_image(), _blank_image(), consent=True, config=per_call)
         assert result.config is per_call
 
     def test_swap_called_with_single_face(self):
         cfg = PipelineConfig(swap_all_faces=False, watermark=False)
-        p   = _make_pipeline(config=cfg)
+        p = _make_pipeline(config=cfg)
         p.run(_blank_image(), _blank_image(), consent=True)
         p.swapper.swap.assert_called_once()
         p.swapper.swap_all.assert_not_called()
 
     def test_swap_all_called_when_configured(self):
         cfg = PipelineConfig(swap_all_faces=True, watermark=False)
-        p   = _make_pipeline(config=cfg)
+        p = _make_pipeline(config=cfg)
         p.run(_blank_image(), _blank_image(), consent=True)
         p.swapper.swap_all.assert_called_once()
         p.swapper.swap.assert_not_called()
 
     def test_num_faces_swapped_correct(self):
-        p      = _make_pipeline()
+        p = _make_pipeline()
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert result.num_faces_swapped >= 1
 
     def test_different_request_ids_per_run(self):
-        p   = _make_pipeline()
-        r1  = p.run(_blank_image(), _blank_image(), consent=True)
+        p = _make_pipeline()
+        r1 = p.run(_blank_image(), _blank_image(), consent=True)
         # Reset side_effect for the second call
         p.detector.detect.side_effect = [
             _make_detection(n_faces=1),
@@ -711,8 +723,8 @@ class TestFacePipelinePartialFailure:
             ],
             total_time_ms=25.0,
         )
-        cfg  = PipelineConfig(swap_all_faces=True, watermark=False)
-        p    = _make_pipeline(config=cfg, n_target_faces=2)
+        cfg = PipelineConfig(swap_all_faces=True, watermark=False)
+        p = _make_pipeline(config=cfg, n_target_faces=2)
         p.swapper.swap_all.return_value = bad_batch
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert result.status == PipelineStatus.PARTIAL
@@ -724,7 +736,7 @@ class TestFacePipelinePartialFailure:
             total_time_ms=10.0,
         )
         cfg = PipelineConfig(swap_all_faces=True, watermark=False)
-        p   = _make_pipeline(config=cfg)
+        p = _make_pipeline(config=cfg)
         p.swapper.swap_all.return_value = bad_batch
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert len(result.warnings) > 0
@@ -768,39 +780,39 @@ class TestFacePipelineEnhancement:
 
     def test_enhancement_called_when_enabled(self):
         cfg = PipelineConfig(enable_enhancement=True, watermark=False)
-        p   = _make_pipeline(config=cfg, with_enhancer=True)
+        p = _make_pipeline(config=cfg, with_enhancer=True)
         p.run(_blank_image(), _blank_image(), consent=True)
         p.enhancer.enhance.assert_called_once()
 
     def test_enhancement_not_called_when_disabled(self):
         cfg = PipelineConfig(enable_enhancement=False, watermark=False)
-        p   = _make_pipeline(config=cfg, with_enhancer=True)
+        p = _make_pipeline(config=cfg, with_enhancer=True)
         p.run(_blank_image(), _blank_image(), consent=True)
         p.enhancer.enhance.assert_not_called()
 
     def test_enhancement_not_called_without_enhancer(self):
         cfg = PipelineConfig(enable_enhancement=True, watermark=False)
-        p   = _make_pipeline(config=cfg, with_enhancer=False)
+        p = _make_pipeline(config=cfg, with_enhancer=False)
         p.run(_blank_image(), _blank_image(), consent=True)
         # No enhancer attached — no AttributeError either
         assert p.enhancer is None
 
     def test_enhancement_result_stored(self):
         cfg = PipelineConfig(enable_enhancement=True, watermark=False)
-        p   = _make_pipeline(config=cfg, with_enhancer=True)
+        p = _make_pipeline(config=cfg, with_enhancer=True)
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert result.enhancement_result is not None
 
     def test_enhancement_success_updates_output(self):
         cfg = PipelineConfig(enable_enhancement=True, watermark=False)
-        p   = _make_pipeline(config=cfg, with_enhancer=True)
+        p = _make_pipeline(config=cfg, with_enhancer=True)
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert result.success is True
         assert isinstance(result.output_image, np.ndarray)
 
     def test_enhancement_failure_adds_warning(self):
         cfg = PipelineConfig(enable_enhancement=True, watermark=False)
-        p   = _make_pipeline(config=cfg, with_enhancer=True, enhance_success=False)
+        p = _make_pipeline(config=cfg, with_enhancer=True, enhance_success=False)
         result = p.run(_blank_image(), _blank_image(), consent=True)
         # Should still succeed (swap worked) but with a warning
         assert result.success is True
@@ -808,14 +820,14 @@ class TestFacePipelineEnhancement:
 
     def test_enhancement_failure_does_not_lose_swap_output(self):
         cfg = PipelineConfig(enable_enhancement=True, watermark=False)
-        p   = _make_pipeline(config=cfg, with_enhancer=True, enhance_success=False)
+        p = _make_pipeline(config=cfg, with_enhancer=True, enhance_success=False)
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert result.output_image is not None
         assert result.output_image.ndim == 3
 
     def test_enhancement_exception_adds_warning_not_error(self):
         cfg = PipelineConfig(enable_enhancement=True, watermark=False)
-        p   = _make_pipeline(config=cfg, with_enhancer=True)
+        p = _make_pipeline(config=cfg, with_enhancer=True)
         p.enhancer.enhance.side_effect = RuntimeError("enhancer exploded")
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert result.success is True
@@ -823,13 +835,13 @@ class TestFacePipelineEnhancement:
 
     def test_enable_enhancement_without_enhancer_adds_warning(self):
         cfg = PipelineConfig(enable_enhancement=True, watermark=False)
-        p   = _make_pipeline(config=cfg, with_enhancer=False)
+        p = _make_pipeline(config=cfg, with_enhancer=False)
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert any("enhancer" in w.lower() or "enhancement" in w.lower() for w in result.warnings)
 
     def test_enhancement_timing_recorded(self):
         cfg = PipelineConfig(enable_enhancement=True, watermark=False)
-        p   = _make_pipeline(config=cfg, with_enhancer=True)
+        p = _make_pipeline(config=cfg, with_enhancer=True)
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert result.timing.enhance_ms >= 0.0
 
@@ -839,26 +851,26 @@ class TestFacePipelineEnhancement:
 class TestFacePipelineWatermark:
 
     def test_watermark_enabled_by_default(self):
-        p      = _make_pipeline()
+        p = _make_pipeline()
         result = p.run(_blank_image(), _blank_image(), consent=True)
         # Pipeline completes; watermark stage timing should be ≥ 0
         assert result.timing.watermark_ms >= 0.0
 
     def test_watermark_disabled_via_config(self):
-        cfg    = PipelineConfig(watermark=False)
-        p      = _make_pipeline(config=cfg)
+        cfg = PipelineConfig(watermark=False)
+        p = _make_pipeline(config=cfg)
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert result.success is True
 
     def test_watermark_timing_zero_when_disabled(self):
-        cfg    = PipelineConfig(watermark=False)
-        p      = _make_pipeline(config=cfg)
+        cfg = PipelineConfig(watermark=False)
+        p = _make_pipeline(config=cfg)
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert result.timing.watermark_ms == 0.0
 
     def test_custom_watermark_text_in_config(self):
-        cfg    = PipelineConfig(watermark=True, watermark_text="CUSTOM MARK")
-        p      = _make_pipeline(config=cfg)
+        cfg = PipelineConfig(watermark=True, watermark_text="CUSTOM MARK")
+        p = _make_pipeline(config=cfg)
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert result.success is True
 
@@ -907,17 +919,17 @@ class TestVideoProcessingConfig:
             enhance=True,
             max_resolution=(1280, 720),
         )
-        assert cfg.blend_mode      == BlendMode.ALPHA
-        assert cfg.skip_frames     == 2
-        assert cfg.swap_all_faces  is False
-        assert cfg.watermark       is False
-        assert cfg.enhance         is True
-        assert cfg.max_resolution  == (1280, 720)
+        assert cfg.blend_mode == BlendMode.ALPHA
+        assert cfg.skip_frames == 2
+        assert cfg.swap_all_faces is False
+        assert cfg.watermark is False
+        assert cfg.enhance is True
+        assert cfg.max_resolution == (1280, 720)
 
     def test_progress_callback_stored(self):
         calls = []
-        cb    = lambda cur, tot: calls.append((cur, tot))
-        cfg   = VideoProcessingConfig(
+        cb = lambda cur, tot: calls.append((cur, tot))
+        cfg = VideoProcessingConfig(
             source_embedding=_make_embedding(),
             progress_callback=cb,
         )
@@ -953,13 +965,13 @@ class TestVideoProcessingResult:
 
     def test_default_fields(self):
         r = VideoProcessingResult(output_path="x.mp4")
-        assert r.total_frames      == 0
-        assert r.processed_frames  == 0
-        assert r.skipped_frames    == 0
-        assert r.failed_frames     == 0
-        assert r.total_time_s      == 0.0
-        assert r.avg_fps           == 0.0
-        assert r.source_fps        == 0.0
+        assert r.total_frames == 0
+        assert r.processed_frames == 0
+        assert r.skipped_frames == 0
+        assert r.failed_frames == 0
+        assert r.total_time_s == 0.0
+        assert r.avg_fps == 0.0
+        assert r.source_fps == 0.0
         assert r.source_resolution == (0, 0)
 
     def test_output_path_stored(self):
@@ -972,15 +984,15 @@ class TestVideoProcessingResult:
 class TestVideoPipelineConstruction:
 
     def test_stores_detector(self):
-        det  = _mock_detector()
+        det = _mock_detector()
         swap = _mock_swapper()
-        vp   = VideoPipeline(detector=det, swapper=swap)
+        vp = VideoPipeline(detector=det, swapper=swap)
         assert vp.detector is det
 
     def test_stores_swapper(self):
-        det  = _mock_detector()
+        det = _mock_detector()
         swap = _mock_swapper()
-        vp   = VideoPipeline(detector=det, swapper=swap)
+        vp = VideoPipeline(detector=det, swapper=swap)
         assert vp.swapper is swap
 
     def test_enhancer_defaults_to_none(self):
@@ -989,7 +1001,7 @@ class TestVideoPipelineConstruction:
 
     def test_stores_enhancer(self):
         enh = _mock_enhancer()
-        vp  = VideoPipeline(
+        vp = VideoPipeline(
             detector=_mock_detector(),
             swapper=_mock_swapper(),
             enhancer=enh,
@@ -1002,7 +1014,7 @@ class TestVideoPipelineConstruction:
 
     def test_repr_contains_detector_name(self):
         vp = VideoPipeline(detector=_mock_detector(), swapper=_mock_swapper())
-        r  = repr(vp)
+        r = repr(vp)
         assert "detector" in r.lower() or "Mock" in r
 
     def test_repr_shows_none_when_no_enhancer(self):
@@ -1068,13 +1080,13 @@ class TestVideoPipelineAddWatermark:
         assert not np.array_equal(img, out)
 
     def test_does_not_modify_original(self):
-        img  = _blank_image()
+        img = _blank_image()
         copy = img.copy()
         VideoPipeline._add_watermark(img, "TEST")
         np.testing.assert_array_equal(img, copy)
 
     def test_different_text_different_output(self):
-        img  = _blank_image()
+        img = _blank_image()
         out1 = VideoPipeline._add_watermark(img, "ALPHA")
         out2 = VideoPipeline._add_watermark(img, "ZZZZZZ")
         assert not np.array_equal(out1, out2)
@@ -1095,9 +1107,9 @@ class TestVideoPipelineAddWatermark:
 class TestVideoPipelineProcessFrame:
 
     def _make_vp(self, n_faces=1, swap_success=True, with_enhancer=False):
-        det  = _mock_detector(n_faces=n_faces)
+        det = _mock_detector(n_faces=n_faces)
         swap = _mock_swapper(success=swap_success)
-        enh  = _mock_enhancer() if with_enhancer else None
+        enh = _mock_enhancer() if with_enhancer else None
         return VideoPipeline(detector=det, swapper=swap, enhancer=enh)
 
     def _make_cfg(self, **kwargs) -> VideoProcessingConfig:
@@ -1109,40 +1121,40 @@ class TestVideoPipelineProcessFrame:
         return VideoProcessingConfig(**defaults)
 
     def test_returns_ndarray(self):
-        vp     = self._make_vp()
-        frame  = _blank_image()
-        cfg    = self._make_cfg()
+        vp = self._make_vp()
+        frame = _blank_image()
+        cfg = self._make_cfg()
         result = vp._process_frame(frame, cfg)
         assert isinstance(result, np.ndarray)
 
     def test_same_shape_on_success(self):
-        vp    = self._make_vp()
+        vp = self._make_vp()
         frame = _blank_image(480, 640)
-        cfg   = self._make_cfg()
-        out   = vp._process_frame(frame, cfg)
+        cfg = self._make_cfg()
+        out = vp._process_frame(frame, cfg)
         assert out.shape == frame.shape
 
     def test_returns_original_frame_when_no_face(self):
-        vp    = self._make_vp(n_faces=0)
+        vp = self._make_vp(n_faces=0)
         frame = _blank_image()
-        cfg   = self._make_cfg()
-        out   = vp._process_frame(frame, cfg)
+        cfg = self._make_cfg()
+        out = vp._process_frame(frame, cfg)
         np.testing.assert_array_equal(out, frame)
 
     def test_swap_called_once_for_single_face(self):
-        vp  = self._make_vp()
+        vp = self._make_vp()
         cfg = self._make_cfg(swap_all_faces=False)
         vp._process_frame(_blank_image(), cfg)
         vp.swapper.swap.assert_called_once()
 
     def test_swap_all_called_for_all_faces_mode(self):
-        vp  = self._make_vp()
+        vp = self._make_vp()
         cfg = self._make_cfg(swap_all_faces=True)
         vp._process_frame(_blank_image(), cfg)
         vp.swapper.swap_all.assert_called_once()
 
     def test_enhance_called_when_enabled(self):
-        vp  = self._make_vp(with_enhancer=True)
+        vp = self._make_vp(with_enhancer=True)
         # Mark enhancer as loaded
         vp.enhancer.is_loaded = True
         cfg = self._make_cfg(enhance=True)
@@ -1150,23 +1162,23 @@ class TestVideoPipelineProcessFrame:
         vp.enhancer.enhance.assert_called_once()
 
     def test_enhance_not_called_when_disabled(self):
-        vp  = self._make_vp(with_enhancer=True)
+        vp = self._make_vp(with_enhancer=True)
         cfg = self._make_cfg(enhance=False)
         vp._process_frame(_blank_image(), cfg)
         vp.enhancer.enhance.assert_not_called()
 
     def test_enhance_not_called_without_enhancer(self):
-        vp  = self._make_vp(with_enhancer=False)
+        vp = self._make_vp(with_enhancer=False)
         cfg = self._make_cfg(enhance=True)
         # Should not raise even though enhancer is None
         out = vp._process_frame(_blank_image(), cfg)
         assert isinstance(out, np.ndarray)
 
     def test_failed_swap_returns_original_frame(self):
-        vp    = self._make_vp(swap_success=False)
+        vp = self._make_vp(swap_success=False)
         frame = _blank_image()
-        cfg   = self._make_cfg(swap_all_faces=False)
-        out   = vp._process_frame(frame, cfg)
+        cfg = self._make_cfg(swap_all_faces=False)
+        out = vp._process_frame(frame, cfg)
         # On failure, single swap returns original frame
         assert out.shape == frame.shape
 
@@ -1177,10 +1189,10 @@ class TestVideoPipelineProcess:
 
     def _make_temp_video(self, tmp_path, n_frames=5, fps=10.0, w=64, h=64) -> str:
         """Write a minimal MP4 with solid-colour frames and return its path."""
-        path   = str(tmp_path / "test_input.mp4")
+        path = str(tmp_path / "test_input.mp4")
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         writer = cv2.VideoWriter(path, fourcc, fps, (w, h))
-        rng    = np.random.default_rng(0)
+        rng = np.random.default_rng(0)
         for _ in range(n_frames):
             frame = rng.integers(0, 256, (h, w, 3), dtype=np.uint8)
             writer.write(frame)
@@ -1188,8 +1200,8 @@ class TestVideoPipelineProcess:
         return path
 
     def _make_vp(self):
-        det  = MagicMock()
-        det.is_loaded  = True
+        det = MagicMock()
+        det.is_loaded = True
         det.detect.return_value = _make_detection(n_faces=1)
         swap = _mock_swapper()
         return VideoPipeline(detector=det, swapper=swap)
@@ -1202,7 +1214,7 @@ class TestVideoPipelineProcess:
         )
 
     def test_raises_if_source_not_found(self, tmp_path):
-        vp  = self._make_vp()
+        vp = self._make_vp()
         cfg = self._make_cfg()
         with pytest.raises(FileNotFoundError):
             vp.process(
@@ -1214,7 +1226,7 @@ class TestVideoPipelineProcess:
     def test_returns_video_processing_result(self, tmp_path):
         src = self._make_temp_video(tmp_path)
         out = str(tmp_path / "out.mp4")
-        vp  = self._make_vp()
+        vp = self._make_vp()
         cfg = self._make_cfg()
         result = vp.process(source_video=src, output_path=out, config=cfg)
         assert isinstance(result, VideoProcessingResult)
@@ -1222,74 +1234,74 @@ class TestVideoPipelineProcess:
     def test_output_file_created(self, tmp_path):
         src = self._make_temp_video(tmp_path)
         out = str(tmp_path / "out.mp4")
-        vp  = self._make_vp()
+        vp = self._make_vp()
         cfg = self._make_cfg()
         vp.process(source_video=src, output_path=out, config=cfg)
         assert Path(out).exists()
 
     def test_processed_frames_count(self, tmp_path):
         n_frames = 5
-        src    = self._make_temp_video(tmp_path, n_frames=n_frames)
-        out    = str(tmp_path / "out.mp4")
-        vp     = self._make_vp()
-        cfg    = self._make_cfg()
+        src = self._make_temp_video(tmp_path, n_frames=n_frames)
+        out = str(tmp_path / "out.mp4")
+        vp = self._make_vp()
+        cfg = self._make_cfg()
         result = vp.process(source_video=src, output_path=out, config=cfg)
         assert result.processed_frames + result.failed_frames == n_frames
 
     def test_total_frames_matches_video(self, tmp_path):
         n_frames = 6
-        src    = self._make_temp_video(tmp_path, n_frames=n_frames)
-        out    = str(tmp_path / "out.mp4")
-        vp     = self._make_vp()
-        cfg    = self._make_cfg()
+        src = self._make_temp_video(tmp_path, n_frames=n_frames)
+        out = str(tmp_path / "out.mp4")
+        vp = self._make_vp()
+        cfg = self._make_cfg()
         result = vp.process(source_video=src, output_path=out, config=cfg)
         assert result.total_frames == n_frames
 
     def test_output_path_in_result(self, tmp_path):
-        src    = self._make_temp_video(tmp_path)
-        out    = str(tmp_path / "out.mp4")
-        vp     = self._make_vp()
-        cfg    = self._make_cfg()
+        src = self._make_temp_video(tmp_path)
+        out = str(tmp_path / "out.mp4")
+        vp = self._make_vp()
+        cfg = self._make_cfg()
         result = vp.process(source_video=src, output_path=out, config=cfg)
         assert result.output_path == out
 
     def test_source_fps_in_result(self, tmp_path):
-        src    = self._make_temp_video(tmp_path, fps=10.0)
-        out    = str(tmp_path / "out.mp4")
-        vp     = self._make_vp()
-        cfg    = self._make_cfg()
+        src = self._make_temp_video(tmp_path, fps=10.0)
+        out = str(tmp_path / "out.mp4")
+        vp = self._make_vp()
+        cfg = self._make_cfg()
         result = vp.process(source_video=src, output_path=out, config=cfg)
         assert result.source_fps > 0.0
 
     def test_total_time_positive(self, tmp_path):
-        src    = self._make_temp_video(tmp_path)
-        out    = str(tmp_path / "out.mp4")
-        vp     = self._make_vp()
-        cfg    = self._make_cfg()
+        src = self._make_temp_video(tmp_path)
+        out = str(tmp_path / "out.mp4")
+        vp = self._make_vp()
+        cfg = self._make_cfg()
         result = vp.process(source_video=src, output_path=out, config=cfg)
         assert result.total_time_s >= 0.0
 
     def test_skip_frames_reduces_processed_count(self, tmp_path):
         n_frames = 8
-        src    = self._make_temp_video(tmp_path, n_frames=n_frames)
-        out    = str(tmp_path / "out.mp4")
-        vp     = self._make_vp()
-        cfg    = VideoProcessingConfig(
+        src = self._make_temp_video(tmp_path, n_frames=n_frames)
+        out = str(tmp_path / "out.mp4")
+        vp = self._make_vp()
+        cfg = VideoProcessingConfig(
             source_embedding=_make_embedding(),
             watermark=False,
             preserve_audio=False,
-            skip_frames=1,   # process every other frame
+            skip_frames=1,  # process every other frame
         )
         result = vp.process(source_video=src, output_path=out, config=cfg)
         assert result.skipped_frames > 0
         assert result.processed_frames < n_frames
 
     def test_progress_callback_called(self, tmp_path):
-        src      = self._make_temp_video(tmp_path, n_frames=4)
-        out      = str(tmp_path / "out.mp4")
-        vp       = self._make_vp()
-        calls    = []
-        cfg      = VideoProcessingConfig(
+        src = self._make_temp_video(tmp_path, n_frames=4)
+        out = str(tmp_path / "out.mp4")
+        vp = self._make_vp()
+        calls = []
+        cfg = VideoProcessingConfig(
             source_embedding=_make_embedding(),
             watermark=False,
             preserve_audio=False,
@@ -1299,25 +1311,25 @@ class TestVideoPipelineProcess:
         assert len(calls) > 0
 
     def test_failed_frames_counted_on_swap_error(self, tmp_path):
-        src  = self._make_temp_video(tmp_path, n_frames=4)
-        out  = str(tmp_path / "out.mp4")
-        det  = MagicMock()
+        src = self._make_temp_video(tmp_path, n_frames=4)
+        out = str(tmp_path / "out.mp4")
+        det = MagicMock()
         det.is_loaded = True
         det.detect.return_value = _make_detection(n_faces=1)
         swap = _mock_swapper()
         swap.swap.side_effect = RuntimeError("swap failed")
         swap.swap_all.side_effect = RuntimeError("swap failed")
-        vp   = VideoPipeline(detector=det, swapper=swap)
-        cfg  = self._make_cfg()
+        vp = VideoPipeline(detector=det, swapper=swap)
+        cfg = self._make_cfg()
         result = vp.process(source_video=src, output_path=out, config=cfg)
         assert result.failed_frames > 0
 
     def test_output_dir_created_if_missing(self, tmp_path):
-        src     = self._make_temp_video(tmp_path)
+        src = self._make_temp_video(tmp_path)
         new_dir = tmp_path / "nested" / "output"
-        out     = str(new_dir / "result.mp4")
-        vp      = self._make_vp()
-        cfg     = self._make_cfg()
+        out = str(new_dir / "result.mp4")
+        vp = self._make_vp()
+        cfg = self._make_cfg()
         vp.process(source_video=src, output_path=out, config=cfg)
         assert new_dir.exists()
 
@@ -1328,8 +1340,8 @@ class TestMergeAudio:
 
     def test_returns_false_when_ffmpeg_missing(self, tmp_path):
         """Should return False gracefully when FFmpeg is not on PATH."""
-        video  = str(tmp_path / "video.mp4")
-        audio  = str(tmp_path / "audio.mp4")
+        video = str(tmp_path / "video.mp4")
+        audio = str(tmp_path / "audio.mp4")
         output = str(tmp_path / "merged.mp4")
         # Create dummy files so the path checks pass
         Path(video).write_bytes(b"dummy")
@@ -1340,21 +1352,21 @@ class TestMergeAudio:
         assert result is False
 
     def test_returns_false_on_nonzero_returncode(self, tmp_path):
-        video  = str(tmp_path / "v.mp4")
-        audio  = str(tmp_path / "a.mp4")
+        video = str(tmp_path / "v.mp4")
+        audio = str(tmp_path / "a.mp4")
         output = str(tmp_path / "out.mp4")
 
         mock_result = MagicMock()
         mock_result.returncode = 1
-        mock_result.stderr     = b"error output"
+        mock_result.stderr = b"error output"
 
         with patch("subprocess.run", return_value=mock_result):
             result = VideoPipeline._merge_audio(video, audio, output)
         assert result is False
 
     def test_returns_true_on_success(self, tmp_path):
-        video  = str(tmp_path / "v.mp4")
-        audio  = str(tmp_path / "a.mp4")
+        video = str(tmp_path / "v.mp4")
+        audio = str(tmp_path / "a.mp4")
         output = str(tmp_path / "out.mp4")
 
         mock_result = MagicMock()
@@ -1366,8 +1378,9 @@ class TestMergeAudio:
 
     def test_returns_false_on_timeout(self, tmp_path):
         import subprocess
-        video  = str(tmp_path / "v.mp4")
-        audio  = str(tmp_path / "a.mp4")
+
+        video = str(tmp_path / "v.mp4")
+        audio = str(tmp_path / "a.mp4")
         output = str(tmp_path / "out.mp4")
 
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("ffmpeg", 600)):

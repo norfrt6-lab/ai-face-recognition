@@ -1,15 +1,15 @@
 try:
     from core.swapper.base_swapper import (
         BaseSwapper,
+        BatchSwapResult,
         BlendMode,
-        SwapStatus,
         SwapRequest,
         SwapResult,
-        BatchSwapResult,
-        get_reference_points,
-        estimate_norm,
-        norm_crop,
+        SwapStatus,
         estimate_landmarks_from_bbox,
+        estimate_norm,
+        get_reference_points,
+        norm_crop,
         paste_back,
         paste_back_poisson,
     )

@@ -67,10 +67,10 @@ def setup_logger(
         _logger.add(
             sys.stdout,
             level=level,
-            serialize=True,          # Loguru built-in JSON serialisation
+            serialize=True,  # Loguru built-in JSON serialisation
             backtrace=True,
-            diagnose=False,          # Avoid leaking variable values in prod
-            enqueue=True,            # Thread-safe async logging
+            diagnose=False,  # Avoid leaking variable values in prod
+            enqueue=True,  # Thread-safe async logging
         )
     else:
         _logger.add(
@@ -135,6 +135,7 @@ def get_logger(name: str):
 # ------------------------------------------------------------------ #
 # Convenience: setup with defaults from config/settings.py
 # ------------------------------------------------------------------ #
+
 
 def setup_from_settings() -> None:
     """

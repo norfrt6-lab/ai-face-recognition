@@ -1,13 +1,13 @@
 try:
     from .base_enhancer import (
         BaseEnhancer,
-        EnhancerBackend,
-        EnhancementStatus,
         EnhancementRequest,
         EnhancementResult,
+        EnhancementStatus,
+        EnhancerBackend,
+        find_center_face,
         pad_image_for_enhancement,
         unpad_image,
-        find_center_face,
     )
 except ImportError:
     BaseEnhancer = None  # type: ignore[assignment,misc]

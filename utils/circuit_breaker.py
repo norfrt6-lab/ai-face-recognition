@@ -8,8 +8,8 @@ States:
 
 from __future__ import annotations
 
-import time
 import threading
+import time
 from enum import Enum
 from typing import Optional
 
@@ -26,10 +26,7 @@ class CircuitOpenError(RuntimeError):
     def __init__(self, name: str, retry_after: float) -> None:
         self.name = name
         self.retry_after = retry_after
-        super().__init__(
-            f"Circuit breaker '{name}' is OPEN. "
-            f"Retry after {retry_after:.1f}s."
-        )
+        super().__init__(f"Circuit breaker '{name}' is OPEN. " f"Retry after {retry_after:.1f}s.")
 
 
 class CircuitBreaker:
@@ -89,7 +86,10 @@ class CircuitBreaker:
         with self._lock:
             self._failure_count += 1
             self._last_failure_time = time.monotonic()
-            if self._failure_count >= self.failure_threshold or self._state == CircuitState.HALF_OPEN:
+            if (
+                self._failure_count >= self.failure_threshold
+                or self._state == CircuitState.HALF_OPEN
+            ):
                 self._state = CircuitState.OPEN
 
     def reset(self) -> None:

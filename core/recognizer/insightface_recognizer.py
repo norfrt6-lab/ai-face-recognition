@@ -109,7 +109,7 @@ class InsightFaceRecognizer(BaseRecognizer):
         self.ctx_id = ctx_id
 
         self._load_lock = threading.Lock()
-        self._app = None           # insightface.app.FaceAnalysis instance
+        self._app = None  # insightface.app.FaceAnalysis instance
 
     # ------------------------------------------------------------------
     # Model loading
@@ -129,9 +129,7 @@ class InsightFaceRecognizer(BaseRecognizer):
         """
         with self._load_lock:
             if self._is_loaded:
-                logger.debug(
-                    f"{self.__class__.__name__} already loaded — skipping."
-                )
+                logger.debug(f"{self.__class__.__name__} already loaded — skipping.")
                 return
 
             logger.info(
@@ -160,24 +158,21 @@ class InsightFaceRecognizer(BaseRecognizer):
                     det_thresh=self.det_score_thresh,
                 )
 
-                self._model = self._app          # keep base class ref
+                self._model = self._app  # keep base class ref
                 self._is_loaded = True
 
             except ImportError as exc:
                 raise RuntimeError(
-                    "insightface is not installed. "
-                    "Run: pip install insightface>=0.7.3"
+                    "insightface is not installed. " "Run: pip install insightface>=0.7.3"
                 ) from exc
             except Exception as exc:
                 raise RuntimeError(
-                    f"Failed to load InsightFace model pack "
-                    f"'{self.model_pack}': {exc}"
+                    f"Failed to load InsightFace model pack " f"'{self.model_pack}': {exc}"
                 ) from exc
 
             elapsed = self._timer() - t0
             logger.success(
-                f"InsightFace recognizer ready in {elapsed:.0f} ms | "
-                f"pack={self.model_pack}"
+                f"InsightFace recognizer ready in {elapsed:.0f} ms | " f"pack={self.model_pack}"
             )
 
     # ------------------------------------------------------------------
@@ -221,9 +216,7 @@ class InsightFaceRecognizer(BaseRecognizer):
 
         try:
             if landmarks is not None and landmarks.shape == (5, 2):
-                return self._embed_aligned(
-                    image, landmarks=landmarks, t0=t0
-                )
+                return self._embed_aligned(image, landmarks=landmarks, t0=t0)
 
             if bbox is not None:
                 return self._embed_from_bbox(image, bbox=bbox, t0=t0)
@@ -299,10 +292,7 @@ class InsightFaceRecognizer(BaseRecognizer):
         """
         self._require_loaded()
         bboxes = bboxes or [None] * len(images)
-        return [
-            self.get_embedding(img, bbox=bb)
-            for img, bb in zip(images, bboxes)
-        ]
+        return [self.get_embedding(img, bbox=bb) for img, bb in zip(images, bboxes)]
 
     # ------------------------------------------------------------------
     # Attribute prediction
@@ -420,6 +410,7 @@ class InsightFaceRecognizer(BaseRecognizer):
             if self.ctx_id >= 0:
                 try:
                     import torch  # noqa: PLC0415
+
                     if torch.cuda.is_available():
                         torch.cuda.empty_cache()
                         logger.debug("CUDA cache cleared after InsightFace release.")
@@ -442,15 +433,15 @@ class InsightFaceRecognizer(BaseRecognizer):
             similarity_threshold, embedding_dim, providers, is_loaded.
         """
         return {
-            "model_pack":           self.model_pack,
-            "model_root":           str(self.model_root),
-            "det_size":             self.det_size,
-            "det_score_thresh":     self.det_score_thresh,
+            "model_pack": self.model_pack,
+            "model_root": str(self.model_root),
+            "det_size": self.det_size,
+            "det_score_thresh": self.det_score_thresh,
             "similarity_threshold": self.similarity_threshold,
-            "embedding_dim":        self.embedding_dim,
-            "providers":            self.providers,
-            "ctx_id":               self.ctx_id,
-            "is_loaded":            self._is_loaded,
+            "embedding_dim": self.embedding_dim,
+            "providers": self.providers,
+            "ctx_id": self.ctx_id,
+            "is_loaded": self._is_loaded,
         }
 
     def warmup(self, iterations: int = 2) -> float:
@@ -588,7 +579,7 @@ class InsightFaceRecognizer(BaseRecognizer):
 
     def _face_to_embedding(
         self,
-        face,                         # insightface Face object
+        face,  # insightface Face object
         face_index: int = 0,
     ) -> Optional[FaceEmbedding]:
         """
@@ -658,7 +649,7 @@ class InsightFaceRecognizer(BaseRecognizer):
         InsightFace encodes gender as:  0 = Female, 1 = Male.
         We normalise to 'F' / 'M' strings.
         """
-        age    = getattr(face, "age",    None)
+        age = getattr(face, "age", None)
         gender = getattr(face, "gender", None)
 
         if age is None and gender is None:
@@ -670,8 +661,8 @@ class InsightFaceRecognizer(BaseRecognizer):
         if gender is not None:
             try:
                 g = int(gender)
-                gender_str   = "M" if g == 1 else "F"
-                gender_score = 1.0   # InsightFace doesn't expose soft score
+                gender_str = "M" if g == 1 else "F"
+                gender_score = 1.0  # InsightFace doesn't expose soft score
             except (ValueError, TypeError):
                 gender_str = None
 
@@ -757,10 +748,10 @@ class InsightFaceRecognizer(BaseRecognizer):
 
         try:
             import torch  # noqa: PLC0415
+
             if not torch.cuda.is_available():
                 logger.debug(
-                    "CUDA provider requested but torch.cuda not available "
-                    "— falling back to CPU."
+                    "CUDA provider requested but torch.cuda not available " "— falling back to CPU."
                 )
                 return -1
         except ImportError:
@@ -775,6 +766,7 @@ class InsightFaceRecognizer(BaseRecognizer):
         """
         try:
             import onnxruntime as ort  # noqa: PLC0415
+
             available = ort.get_available_providers()
             resolved = [p for p in self.providers if p in available]
             if not resolved:

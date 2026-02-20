@@ -21,7 +21,6 @@ import requests
 import streamlit as st
 from PIL import Image
 
-
 st.set_page_config(
     page_title="Face Swap — AI Face Recognition",
     page_icon="🔄",
@@ -31,20 +30,21 @@ st.set_page_config(
 
 
 import os as _os
+
 API_BASE_URL_DEFAULT = _os.getenv("UI_API_BASE_URL", "http://localhost:8000")
-SWAP_ENDPOINT        = "/api/v1/swap"
-HEALTH_ENDPOINT      = "/api/v1/health"
-MAX_IMAGE_SIZE_MB    = 50
-SUPPORTED_FORMATS    = ["jpg", "jpeg", "png", "webp", "bmp"]
+SWAP_ENDPOINT = "/api/v1/swap"
+HEALTH_ENDPOINT = "/api/v1/health"
+MAX_IMAGE_SIZE_MB = 50
+SUPPORTED_FORMATS = ["jpg", "jpeg", "png", "webp", "bmp"]
 
 
 def _init_session_state() -> None:
     """Initialise all session state keys with defaults."""
     defaults = {
         "swap_result_image": None,
-        "swap_result_info":  None,
-        "api_url":           API_BASE_URL_DEFAULT,
-        "api_healthy":       None,
+        "swap_result_info": None,
+        "api_url": API_BASE_URL_DEFAULT,
+        "api_healthy": None,
         "last_health_check": 0.0,
     }
     for key, value in defaults.items():
@@ -75,34 +75,34 @@ def _check_api_health(force: bool = False) -> bool:
             timeout=5,
         )
         healthy = resp.status_code == 200
-        data    = resp.json() if healthy else {}
-        st.session_state.api_healthy    = healthy
+        data = resp.json() if healthy else {}
+        st.session_state.api_healthy = healthy
         st.session_state.last_health_check = now
-        st.session_state.api_health_data   = data
+        st.session_state.api_health_data = data
         return healthy
     except Exception:
-        st.session_state.api_healthy    = False
+        st.session_state.api_healthy = False
         st.session_state.last_health_check = now
         return False
 
 
 def _call_swap_api(
-    source_bytes:      bytes,
-    target_bytes:      bytes,
-    source_filename:   str,
-    target_filename:   str,
-    blend_mode:        str,
-    blend_alpha:       float,
-    mask_feather:      int,
-    swap_all_faces:    bool,
-    max_faces:         int,
+    source_bytes: bytes,
+    target_bytes: bytes,
+    source_filename: str,
+    target_filename: str,
+    blend_mode: str,
+    blend_alpha: float,
+    mask_feather: int,
+    swap_all_faces: bool,
+    max_faces: int,
     source_face_index: int,
     target_face_index: int,
-    enhance:           bool,
-    enhancer_backend:  str,
+    enhance: bool,
+    enhancer_backend: str,
     enhancer_fidelity: float,
-    watermark:         bool,
-    consent:           bool = False,
+    watermark: bool,
+    consent: bool = False,
 ) -> dict:
     """
     Call POST /api/v1/swap with return_base64=true.
@@ -115,8 +115,11 @@ def _call_swap_api(
     def _guess_mime(filename: str) -> str:
         ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
         return {
-            "jpg": "image/jpeg", "jpeg": "image/jpeg",
-            "png": "image/png", "webp": "image/webp", "bmp": "image/bmp",
+            "jpg": "image/jpeg",
+            "jpeg": "image/jpeg",
+            "png": "image/png",
+            "webp": "image/webp",
+            "bmp": "image/bmp",
         }.get(ext, "image/jpeg")
 
     files = {
@@ -124,19 +127,19 @@ def _call_swap_api(
         "target_file": (target_filename, target_bytes, _guess_mime(target_filename)),
     }
     data = {
-        "blend_mode":         blend_mode,
-        "blend_alpha":        str(blend_alpha),
-        "mask_feather":       str(mask_feather),
-        "swap_all_faces":     str(swap_all_faces).lower(),
-        "max_faces":          str(max_faces),
-        "source_face_index":  str(source_face_index),
-        "target_face_index":  str(target_face_index),
-        "enhance":            str(enhance).lower(),
-        "enhancer_backend":   enhancer_backend,
-        "enhancer_fidelity":  str(enhancer_fidelity),
-        "watermark":          str(watermark).lower(),
-        "return_base64":      "true",
-        "consent":            str(consent).lower(),
+        "blend_mode": blend_mode,
+        "blend_alpha": str(blend_alpha),
+        "mask_feather": str(mask_feather),
+        "swap_all_faces": str(swap_all_faces).lower(),
+        "max_faces": str(max_faces),
+        "source_face_index": str(source_face_index),
+        "target_face_index": str(target_face_index),
+        "enhance": str(enhance).lower(),
+        "enhancer_backend": enhancer_backend,
+        "enhancer_fidelity": str(enhancer_fidelity),
+        "watermark": str(watermark).lower(),
+        "return_base64": "true",
+        "consent": str(consent).lower(),
     }
 
     try:
@@ -154,17 +157,17 @@ def _call_swap_api(
 
         return {
             "success": True,
-            "image":   image,
-            "info":    payload,
-            "error":   None,
+            "image": image,
+            "info": payload,
+            "error": None,
         }
 
     except requests.exceptions.ConnectionError:
         return {
             "success": False,
-            "image":   None,
-            "info":    {},
-            "error":   (
+            "image": None,
+            "info": {},
+            "error": (
                 f"Cannot connect to API at {_get_api_url()}. "
                 "Make sure the API server is running."
             ),
@@ -172,9 +175,9 @@ def _call_swap_api(
     except requests.exceptions.Timeout:
         return {
             "success": False,
-            "image":   None,
-            "info":    {},
-            "error":   "The API request timed out (>120s). Try a smaller image.",
+            "image": None,
+            "info": {},
+            "error": "The API request timed out (>120s). Try a smaller image.",
         }
     except requests.exceptions.HTTPError as exc:
         try:
@@ -183,16 +186,16 @@ def _call_swap_api(
             detail = str(exc)
         return {
             "success": False,
-            "image":   None,
-            "info":    {},
-            "error":   f"API error {exc.response.status_code}: {detail}",
+            "image": None,
+            "info": {},
+            "error": f"API error {exc.response.status_code}: {detail}",
         }
     except Exception as exc:
         return {
             "success": False,
-            "image":   None,
-            "info":    {},
-            "error":   f"Unexpected error: {exc}",
+            "image": None,
+            "info": {},
+            "error": f"Unexpected error: {exc}",
         }
 
 
@@ -228,7 +231,7 @@ def _render_sidebar() -> dict:
 
         # Show component status if health data available
         health_data = st.session_state.get("api_health_data", {})
-        components  = health_data.get("components", {})
+        components = health_data.get("components", {})
         if components:
             with st.expander("Component Status", expanded=False):
                 for name, comp in components.items():
@@ -325,13 +328,10 @@ def _render_sidebar() -> dict:
                 max_value=1.0,
                 value=0.5,
                 step=0.05,
-                help=(
-                    "CodeFormer only: 0.0 = max quality, "
-                    "1.0 = max identity preservation."
-                ),
+                help=("CodeFormer only: 0.0 = max quality, " "1.0 = max identity preservation."),
             )
         else:
-            enhancer_backend  = "gfpgan"
+            enhancer_backend = "gfpgan"
             enhancer_fidelity = 0.5
 
         st.divider()
@@ -358,18 +358,18 @@ def _render_sidebar() -> dict:
         )
 
     return {
-        "blend_mode":        blend_mode,
-        "blend_alpha":       blend_alpha,
-        "mask_feather":      mask_feather,
-        "swap_all_faces":    swap_all_faces,
-        "max_faces":         max_faces,
+        "blend_mode": blend_mode,
+        "blend_alpha": blend_alpha,
+        "mask_feather": mask_feather,
+        "swap_all_faces": swap_all_faces,
+        "max_faces": max_faces,
         "source_face_index": int(source_face_index),
         "target_face_index": int(target_face_index),
-        "enhance":           enhance,
-        "enhancer_backend":  enhancer_backend,
+        "enhance": enhance,
+        "enhancer_backend": enhancer_backend,
         "enhancer_fidelity": enhancer_fidelity,
-        "watermark":         watermark,
-        "consent":           consent,
+        "watermark": watermark,
+        "consent": consent,
     }
 
 
@@ -436,12 +436,12 @@ def _render_result_info(info: dict) -> None:
     if not info:
         return
 
-    total_ms   = info.get("total_inference_ms", 0)
-    swapped    = info.get("num_faces_swapped", 0)
-    failed     = info.get("num_faces_failed", 0)
-    enhanced   = info.get("enhanced", False)
+    total_ms = info.get("total_inference_ms", 0)
+    swapped = info.get("num_faces_swapped", 0)
+    failed = info.get("num_faces_failed", 0)
+    enhanced = info.get("enhanced", False)
     watermarked = info.get("watermarked", False)
-    blend      = info.get("blend_mode", "—")
+    blend = info.get("blend_mode", "—")
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("⏱️ Total Time", f"{total_ms:.0f} ms")
@@ -451,13 +451,15 @@ def _render_result_info(info: dict) -> None:
 
     faces = info.get("faces", [])
     if faces:
-        with st.expander(f"Per-face Details ({len(faces)} face{'s' if len(faces) != 1 else ''})", expanded=False):
+        with st.expander(
+            f"Per-face Details ({len(faces)} face{'s' if len(faces) != 1 else ''})", expanded=False
+        ):
             for face in faces:
-                fi     = face.get("face_index", "?")
-                ok     = face.get("success", False)
+                fi = face.get("face_index", "?")
+                ok = face.get("success", False)
                 status = face.get("status", "—")
                 timing = face.get("timing") or {}
-                err    = face.get("error")
+                err = face.get("error")
 
                 icon = "✅" if ok else "❌"
                 st.write(
@@ -508,7 +510,7 @@ def main() -> None:
         st.caption("Swapped result will appear here.")
 
         result_image: Optional[Image.Image] = st.session_state.swap_result_image
-        result_info:  Optional[dict]        = st.session_state.swap_result_info
+        result_info: Optional[dict] = st.session_state.swap_result_info
 
         if result_image is not None:
             st.image(result_image, caption="Swapped Output", use_column_width=True)
@@ -531,23 +533,21 @@ def main() -> None:
     run_col, clear_col = st.columns([3, 1])
 
     with run_col:
-        run_disabled = (source_bytes is None or target_bytes is None or not settings.get("consent", False))
-        run_clicked  = st.button(
+        run_disabled = (
+            source_bytes is None or target_bytes is None or not settings.get("consent", False)
+        )
+        run_clicked = st.button(
             "🔄 Run Face Swap",
             disabled=run_disabled,
             use_container_width=True,
             type="primary",
-            help=(
-                "Upload both images first."
-                if run_disabled
-                else "Run the face swap pipeline."
-            ),
+            help=("Upload both images first." if run_disabled else "Run the face swap pipeline."),
         )
 
     with clear_col:
         if st.button("🗑️ Clear Result", use_container_width=True):
             st.session_state.swap_result_image = None
-            st.session_state.swap_result_info  = None
+            st.session_state.swap_result_info = None
             st.rerun()
 
     if run_disabled and (source_bytes is None or target_bytes is None):
@@ -573,7 +573,7 @@ def main() -> None:
 
         if result["success"] and result["image"] is not None:
             st.session_state.swap_result_image = result["image"]
-            st.session_state.swap_result_info  = result["info"]
+            st.session_state.swap_result_info = result["info"]
             st.success(
                 f"✅ Swap complete! "
                 f"{result['info'].get('num_faces_swapped', 0)} face(s) swapped in "
@@ -589,8 +589,7 @@ def main() -> None:
         _render_result_info(result_info)
 
     with st.expander("💡 Tips for best results", expanded=False):
-        st.markdown(
-            """
+        st.markdown("""
             - **Source image**: Use a clear, front-facing photo with good lighting.
               A single face works best. Higher resolution = better embedding quality.
             - **Target image**: Can contain multiple faces. Use *Swap All Faces* to
@@ -604,8 +603,7 @@ def main() -> None:
               artifacts from the swapped face. Adds ~1–3s processing time.
             - **Models must be downloaded** before the API can process images.
               Run `python utils/download_models.py --minimum` to get started.
-            """
-        )
+            """)
 
 
 if __name__ == "__main__":

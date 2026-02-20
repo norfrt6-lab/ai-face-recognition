@@ -23,13 +23,13 @@ class ModelSpec:
     """Specification for a single downloadable model file."""
 
     name: str
-    filename: str                          # Local filename inside MODELS_DIR
-    url: str                               # Primary download URL
-    mirrors: List[str] = field(default_factory=list)   # Fallback URLs
-    sha256: Optional[str] = None           # Expected SHA-256 hex digest (optional verify)
-    subdirectory: Optional[str] = None     # Sub-folder inside MODELS_DIR
-    unzip: bool = False                    # Unzip after download?
-    post_download: Optional[str] = None   # Name of a special post-download action key
+    filename: str  # Local filename inside MODELS_DIR
+    url: str  # Primary download URL
+    mirrors: List[str] = field(default_factory=list)  # Fallback URLs
+    sha256: Optional[str] = None  # Expected SHA-256 hex digest (optional verify)
+    subdirectory: Optional[str] = None  # Sub-folder inside MODELS_DIR
+    unzip: bool = False  # Unzip after download?
+    post_download: Optional[str] = None  # Name of a special post-download action key
 
     @property
     def local_path(self) -> Path:
@@ -69,7 +69,7 @@ _MODEL_REGISTRY: Dict[str, ModelSpec] = {
             "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip",
         ],
         sha256=None,  # ZIP extracted after download; verify individual ONNX files instead
-        subdirectory=None,     # will be extracted to models/buffalo_l/
+        subdirectory=None,  # will be extracted to models/buffalo_l/
         unzip=True,
         post_download="buffalo_l_extract",
     ),
@@ -119,7 +119,7 @@ def _download_file(
     url: str,
     dest_path: Path,
     *,
-    chunk_size: int = 1024 * 1024,   # 1 MB chunks
+    chunk_size: int = 1024 * 1024,  # 1 MB chunks
     timeout: int = 30,
     show_progress: bool = True,
 ) -> bool:
@@ -375,8 +375,7 @@ def download_model(
     """
     if key not in _MODEL_REGISTRY:
         raise KeyError(
-            f"Unknown model key: {key!r}. "
-            f"Available keys: {list(_MODEL_REGISTRY.keys())}"
+            f"Unknown model key: {key!r}. " f"Available keys: {list(_MODEL_REGISTRY.keys())}"
         )
 
     spec = _MODEL_REGISTRY[key]

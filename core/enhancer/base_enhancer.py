@@ -36,9 +36,10 @@ class EnhancerBackend(Enum):
     CODEFORMER  — CodeFormer: higher fidelity control via fidelity_weight.
     NONE        — Pass-through (no enhancement applied).
     """
-    GFPGAN     = "gfpgan"
+
+    GFPGAN = "gfpgan"
     CODEFORMER = "codeformer"
-    NONE       = "none"
+    NONE = "none"
 
 
 class EnhancementStatus(Enum):
@@ -52,12 +53,13 @@ class EnhancementStatus(Enum):
     INVALID_INPUT     — Input image failed validation.
     DISABLED          — Backend is set to NONE (pass-through).
     """
-    SUCCESS          = "success"
+
+    SUCCESS = "success"
     NO_FACE_DETECTED = "no_face_detected"
-    INFERENCE_ERROR  = "inference_error"
+    INFERENCE_ERROR = "inference_error"
     MODEL_NOT_LOADED = "model_not_loaded"
-    INVALID_INPUT    = "invalid_input"
-    DISABLED         = "disabled"
+    INVALID_INPUT = "invalid_input"
+    DISABLED = "disabled"
 
 
 @dataclass
@@ -91,14 +93,14 @@ class EnhancementRequest:
         metadata:           Optional free-form dict for debugging / tracing.
     """
 
-    image:            np.ndarray
-    face_boxes:       Optional[List[FaceBox]] = None
-    fidelity_weight:  float = 0.5
-    upscale:          int   = 2
-    only_center_face: bool  = False
-    paste_back:       bool  = True
-    full_frame:       bool  = True
-    metadata:         dict  = field(default_factory=dict)
+    image: np.ndarray
+    face_boxes: Optional[List[FaceBox]] = None
+    fidelity_weight: float = 0.5
+    upscale: int = 2
+    only_center_face: bool = False
+    paste_back: bool = True
+    full_frame: bool = True
+    metadata: dict = field(default_factory=dict)
 
     # ------------------------------------------------------------------
     # Convenience helpers
@@ -128,6 +130,7 @@ class EnhancementRequest:
 
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class EnhancementResult:
     """
@@ -151,15 +154,15 @@ class EnhancementResult:
                             (before paste-back), keyed by face index.
     """
 
-    output_image:       np.ndarray
-    status:             EnhancementStatus
-    backend:            EnhancerBackend
-    num_faces_enhanced: int   = 0
-    enhance_time_ms:    float = 0.0
-    inference_time_ms:  float = 0.0
-    upscale_factor:     int   = 1
-    error:              Optional[str] = None
-    face_crops:         Optional[List[np.ndarray]] = field(default=None, repr=False)
+    output_image: np.ndarray
+    status: EnhancementStatus
+    backend: EnhancerBackend
+    num_faces_enhanced: int = 0
+    enhance_time_ms: float = 0.0
+    inference_time_ms: float = 0.0
+    upscale_factor: int = 1
+    error: Optional[str] = None
+    face_crops: Optional[List[np.ndarray]] = field(default=None, repr=False)
 
     # ------------------------------------------------------------------
     # Convenience helpers
@@ -215,18 +218,21 @@ def pad_image_for_enhancement(
 
     if h < min_size:
         total = min_size - h
-        pad_top    = total // 2
+        pad_top = total // 2
         pad_bottom = total - pad_top
 
     if w < min_size:
         total = min_size - w
-        pad_left  = total // 2
+        pad_left = total // 2
         pad_right = total - pad_left
 
     if pad_top or pad_bottom or pad_left or pad_right:
         image = cv2.copyMakeBorder(
             image,
-            pad_top, pad_bottom, pad_left, pad_right,
+            pad_top,
+            pad_bottom,
+            pad_left,
+            pad_right,
             cv2.BORDER_REFLECT_101,
         )
 
@@ -252,7 +258,7 @@ def unpad_image(
     y1 = pad_top
     y2 = h - pad_bottom if pad_bottom else h
     x1 = pad_left
-    x2 = w - pad_right  if pad_right  else w
+    x2 = w - pad_right if pad_right else w
     return image[y1:y2, x1:x2]
 
 
@@ -323,19 +329,19 @@ class BaseEnhancer(ABC):
             paste_back:        Default paste-back behaviour.
             device:            Inference device: 'auto' | 'cpu' | 'cuda' | 'cuda:N'.
         """
-        self.model_path       = model_path
-        self.backend          = backend
-        self.upscale          = int(upscale)
+        self.model_path = model_path
+        self.backend = backend
+        self.upscale = int(upscale)
         self.only_center_face = bool(only_center_face)
-        self.paste_back       = bool(paste_back)
-        self.device           = device
+        self.paste_back = bool(paste_back)
+        self.device = device
 
-        self._model      = None
+        self._model = None
         self._is_loaded: bool = False
 
         # Cumulative statistics (guarded by _stats_lock for thread safety)
-        self._stats_lock               = threading.Lock()
-        self._total_calls:     int   = 0
+        self._stats_lock = threading.Lock()
+        self._total_calls: int = 0
         self._total_inference: float = 0.0
 
     # ------------------------------------------------------------------
@@ -397,7 +403,9 @@ class BaseEnhancer(ABC):
             image=image,
             fidelity_weight=fidelity_weight if fidelity_weight is not None else 0.5,
             upscale=upscale if upscale is not None else self.upscale,
-            only_center_face=only_center_face if only_center_face is not None else self.only_center_face,
+            only_center_face=(
+                only_center_face if only_center_face is not None else self.only_center_face
+            ),
             paste_back=paste_back if paste_back is not None else self.paste_back,
             full_frame=True,
         )
@@ -410,13 +418,13 @@ class BaseEnhancer(ABC):
         The default clears ``self._model`` and resets ``self._is_loaded``.
         Subclasses should call ``super().release()`` after their cleanup.
         """
-        self._model     = None
+        self._model = None
         self._is_loaded = False
 
     def reset_stats(self) -> None:
         """Reset cumulative inference statistics."""
         with self._stats_lock:
-            self._total_calls     = 0
+            self._total_calls = 0
             self._total_inference = 0.0
 
     # ------------------------------------------------------------------
@@ -432,6 +440,7 @@ class BaseEnhancer(ABC):
     def model_name(self) -> str:
         """Human-readable model identifier (file basename)."""
         import os
+
         return os.path.basename(self.model_path)
 
     @property
@@ -479,13 +488,9 @@ class BaseEnhancer(ABC):
         if image is None:
             raise ValueError("Image is None.")
         if not isinstance(image, np.ndarray):
-            raise ValueError(
-                f"Expected numpy ndarray, got {type(image).__name__}."
-            )
+            raise ValueError(f"Expected numpy ndarray, got {type(image).__name__}.")
         if image.ndim != 3 or image.shape[2] != 3:
-            raise ValueError(
-                f"Expected BGR (H, W, 3) array, got shape {image.shape}."
-            )
+            raise ValueError(f"Expected BGR (H, W, 3) array, got shape {image.shape}.")
         if image.size == 0:
             raise ValueError("Image array is empty.")
 
@@ -501,6 +506,7 @@ class BaseEnhancer(ABC):
 
         try:
             import torch  # noqa: PLC0415
+
             if torch.cuda.is_available():
                 return "cuda"
         except ImportError:

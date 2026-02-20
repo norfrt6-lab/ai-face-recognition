@@ -23,6 +23,7 @@ from PIL import Image
 # Configure logger from settings at startup
 try:
     from utils.logger import setup_from_settings
+
     setup_from_settings()
 except Exception:
     pass
@@ -46,15 +47,15 @@ st.set_page_config(
 
 
 DEFAULT_API_URL = os.getenv("UI_API_BASE_URL", "http://localhost:8000")
-API_TIMEOUT     = 60   # seconds per request
+API_TIMEOUT = 60  # seconds per request
 
 
 def _init_state() -> None:
     """Initialise session-state keys on first run."""
     defaults = {
-        "api_url":        DEFAULT_API_URL,
-        "api_healthy":    None,   # None = not checked yet
-        "api_version":    "—",
+        "api_url": DEFAULT_API_URL,
+        "api_healthy": None,  # None = not checked yet
+        "api_version": "—",
         "api_components": {},
         "last_health_check": 0.0,
     }
@@ -75,7 +76,7 @@ def _check_health(force: bool = False) -> dict:
     """
     now = time.time()
     if not force and (now - st.session_state.last_health_check) < 10:
-        return {}   # use cached status
+        return {}  # use cached status
 
     try:
         resp = requests.get(
@@ -84,8 +85,8 @@ def _check_health(force: bool = False) -> dict:
         )
         if resp.status_code == 200:
             data = resp.json()
-            st.session_state.api_healthy    = data.get("status", "unknown")
-            st.session_state.api_version    = data.get("version", "—")
+            st.session_state.api_healthy = data.get("status", "unknown")
+            st.session_state.api_version = data.get("version", "—")
             st.session_state.api_components = data.get("components", {})
             st.session_state.last_health_check = now
             return data
@@ -98,9 +99,9 @@ def _check_health(force: bool = False) -> dict:
 
 
 def _post_form(
-    endpoint:  str,
-    fields:    dict,
-    files:     Optional[dict] = None,
+    endpoint: str,
+    fields: dict,
+    files: Optional[dict] = None,
 ) -> tuple[Optional[dict], Optional[str]]:
     """
     POST multipart/form-data to *endpoint* and return (json, error).
@@ -115,8 +116,7 @@ def _post_form(
     """
     url = f"{_api_url()}{endpoint}"
     try:
-        data  = {k: str(v) if not isinstance(v, bool) else str(v).lower()
-                 for k, v in fields.items()}
+        data = {k: str(v) if not isinstance(v, bool) else str(v).lower() for k, v in fields.items()}
         fdata = {}
         if files:
             for fname, (filename, content, mime) in files.items():
@@ -139,8 +139,7 @@ def _post_form(
             return None, f"HTTP {resp.status_code}: {detail}"
     except requests.ConnectionError:
         return None, (
-            f"Cannot connect to API at {_api_url()}. "
-            "Make sure the backend is running."
+            f"Cannot connect to API at {_api_url()}. " "Make sure the backend is running."
         )
     except requests.Timeout:
         return None, f"Request timed out after {API_TIMEOUT}s."
@@ -169,8 +168,8 @@ def _render_sidebar() -> str:
                 help="Base URL of the FastAPI backend.",
             )
             if new_url != st.session_state.api_url:
-                st.session_state.api_url       = new_url
-                st.session_state.api_healthy   = None
+                st.session_state.api_url = new_url
+                st.session_state.api_healthy = None
                 st.session_state.last_health_check = 0.0
 
             if st.button("🔄 Refresh Health", use_container_width=True):
@@ -196,7 +195,7 @@ def _render_sidebar() -> str:
             st.caption("Components")
             for name, info in components.items():
                 loaded = info.get("loaded", False)
-                icon   = "🟢" if loaded else "🔴"
+                icon = "🟢" if loaded else "🔴"
                 st.caption(f"{icon} {name}")
 
         st.divider()
@@ -270,41 +269,50 @@ def _page_face_swap() -> None:
         opt_col1, opt_col2, opt_col3 = st.columns(3)
 
         with opt_col1:
-            blend_mode   = st.selectbox(
+            blend_mode = st.selectbox(
                 "Blend Mode",
                 options=["poisson", "alpha", "masked_alpha"],
                 index=0,
                 help="poisson = seamless clone (best quality), alpha = fast",
             )
-            blend_alpha  = st.slider(
+            blend_alpha = st.slider(
                 "Blend Alpha",
-                min_value=0.0, max_value=1.0, value=1.0, step=0.05,
+                min_value=0.0,
+                max_value=1.0,
+                value=1.0,
+                step=0.05,
                 help="1.0 = fully swapped, 0.0 = original unchanged",
             )
             mask_feather = st.slider(
                 "Mask Feather (px)",
-                min_value=0, max_value=60, value=20, step=2,
+                min_value=0,
+                max_value=60,
+                value=20,
+                step=2,
             )
 
         with opt_col2:
-            swap_all     = st.checkbox(
+            swap_all = st.checkbox(
                 "Swap All Faces",
                 value=False,
                 help="Replace every detected face, not just the primary one.",
             )
-            max_faces    = st.number_input(
+            max_faces = st.number_input(
                 "Max Faces",
-                min_value=1, max_value=20, value=5, step=1,
+                min_value=1,
+                max_value=20,
+                value=5,
+                step=1,
             )
-            watermark    = st.checkbox("Add Watermark", value=True)
+            watermark = st.checkbox("Add Watermark", value=True)
 
         with opt_col3:
-            enhance      = st.checkbox(
+            enhance = st.checkbox(
                 "Enhance After Swap",
                 value=False,
                 help="Run GFPGAN / CodeFormer to remove artifacts (slower).",
             )
-            enh_backend  = st.selectbox(
+            enh_backend = st.selectbox(
                 "Enhancer",
                 options=["gfpgan", "codeformer", "none"],
                 index=0,
@@ -328,7 +336,7 @@ def _page_face_swap() -> None:
 
     st.divider()
     run_disabled = not consent or not source_file or not target_file
-    run_clicked  = st.button(
+    run_clicked = st.button(
         "🚀 Run Face Swap",
         disabled=run_disabled,
         use_container_width=True,
@@ -349,17 +357,17 @@ def _page_face_swap() -> None:
             target_bytes = target_file.read()
 
             fields = {
-                "blend_mode":       blend_mode,
-                "blend_alpha":      blend_alpha,
-                "mask_feather":     mask_feather,
-                "swap_all_faces":   swap_all,
-                "max_faces":        max_faces,
-                "enhance":          enhance,
+                "blend_mode": blend_mode,
+                "blend_alpha": blend_alpha,
+                "mask_feather": mask_feather,
+                "swap_all_faces": swap_all,
+                "max_faces": max_faces,
+                "enhance": enhance,
                 "enhancer_backend": enh_backend,
                 "enhancer_fidelity": enh_fidelity,
-                "watermark":        watermark,
-                "return_base64":    return_base64,
-                "consent":          True,
+                "watermark": watermark,
+                "return_base64": return_base64,
+                "consent": True,
             }
             files = {
                 "source_file": (source_file.name, source_bytes, "image/jpeg"),
@@ -389,6 +397,7 @@ def _page_face_swap() -> None:
             else:
                 # JSON response with base64
                 import base64
+
                 b64 = result.get("output_base64")
                 if b64:
                     img_bytes = base64.b64decode(b64)
@@ -404,10 +413,10 @@ def _page_face_swap() -> None:
 
                 # Metadata
                 meta_col1, meta_col2, meta_col3, meta_col4 = st.columns(4)
-                meta_col1.metric("Faces Swapped",  result.get("num_faces_swapped", "—"))
-                meta_col2.metric("Faces Failed",   result.get("num_faces_failed",  "—"))
-                meta_col3.metric("Enhanced",       "Yes" if result.get("enhanced") else "No")
-                meta_col4.metric("Time (ms)",      f"{result.get('total_inference_ms', 0):.0f}")
+                meta_col1.metric("Faces Swapped", result.get("num_faces_swapped", "—"))
+                meta_col2.metric("Faces Failed", result.get("num_faces_failed", "—"))
+                meta_col3.metric("Enhanced", "Yes" if result.get("enhanced") else "No")
+                meta_col4.metric("Time (ms)", f"{result.get('total_inference_ms', 0):.0f}")
 
                 # Per-face details
                 faces = result.get("faces", [])
@@ -445,7 +454,10 @@ def _page_recognition() -> None:
         with opt1:
             threshold = st.slider(
                 "Similarity Threshold",
-                min_value=0.1, max_value=1.0, value=0.45, step=0.05,
+                min_value=0.1,
+                max_value=1.0,
+                value=0.45,
+                step=0.05,
                 help="Minimum cosine similarity to declare a match.",
             )
             return_attrs = st.checkbox("Return Age/Gender", value=True)
@@ -463,11 +475,11 @@ def _page_recognition() -> None:
         with st.spinner("Detecting and recognizing faces…"):
             img_bytes = upload.read()
             fields = {
-                "top_k":               top_k,
+                "top_k": top_k,
                 "similarity_threshold": threshold,
-                "return_attributes":   return_attrs,
-                "return_embeddings":   False,
-                "consent":             True,
+                "return_attributes": return_attrs,
+                "return_embeddings": False,
+                "consent": True,
             }
             files = {"image": (upload.name, img_bytes, "image/jpeg")}
             result, error = _post_form("/api/v1/recognize", fields, files)
@@ -475,7 +487,7 @@ def _page_recognition() -> None:
         if error:
             st.error(f"❌ Recognition failed: {error}")
         elif result:
-            num_det   = result.get("num_faces_detected", 0)
+            num_det = result.get("num_faces_detected", 0)
             num_recog = result.get("num_faces_recognized", 0)
 
             st.success(
@@ -484,9 +496,9 @@ def _page_recognition() -> None:
             )
 
             meta1, meta2, meta3 = st.columns(3)
-            meta1.metric("Faces Detected",    num_det)
-            meta2.metric("Faces Recognized",  num_recog)
-            meta3.metric("Inference (ms)",    f"{result.get('inference_time_ms', 0):.0f}")
+            meta1.metric("Faces Detected", num_det)
+            meta2.metric("Faces Recognized", num_recog)
+            meta3.metric("Inference (ms)", f"{result.get('inference_time_ms', 0):.0f}")
 
             faces = result.get("faces", [])
             if not faces:
@@ -594,7 +606,7 @@ def _page_identities() -> None:
             key="reg_consent",
         )
 
-        reg_name  = st.text_input("Identity Name", placeholder="e.g. Alice")
+        reg_name = st.text_input("Identity Name", placeholder="e.g. Alice")
         reg_image = st.file_uploader(
             "Face photo",
             type=["jpg", "jpeg", "png", "webp", "bmp"],
@@ -613,7 +625,7 @@ def _page_identities() -> None:
             with st.spinner(f"Registering '{reg_name}'…"):
                 img_bytes = reg_image.read()
                 fields = {
-                    "name":    reg_name.strip(),
+                    "name": reg_name.strip(),
                     "consent": True,
                 }
                 files = {"image": (reg_image.name, img_bytes, "image/jpeg")}
@@ -635,8 +647,7 @@ def _page_identities() -> None:
 def _page_about() -> None:
     st.header("ℹ️ About")
 
-    st.markdown(
-        """
+    st.markdown("""
         ## AI Face Recognition & Face Swap
 
         This application is a research and educational demonstration of
@@ -696,8 +707,7 @@ def _page_about() -> None:
         | inswapper_128.onnx | Non-commercial research only |
         | GFPGAN | Apache 2.0 |
         | CodeFormer | S-Lab License (non-commercial) |
-        """
-    )
+        """)
 
 
 def main() -> None:

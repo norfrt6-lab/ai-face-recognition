@@ -138,9 +138,7 @@ class YOLOFaceDetector(BaseDetector):
         """
         with self._load_lock:
             if self._is_loaded:
-                logger.debug(
-                    f"{self.__class__.__name__} already loaded — skipping."
-                )
+                logger.debug(f"{self.__class__.__name__} already loaded — skipping.")
                 return
 
             model_path = Path(self.model_path)
@@ -186,8 +184,7 @@ class YOLOFaceDetector(BaseDetector):
 
             except ImportError as exc:
                 raise RuntimeError(
-                    "ultralytics is not installed. "
-                    "Run: pip install ultralytics>=8.2.0"
+                    "ultralytics is not installed. " "Run: pip install ultralytics>=8.2.0"
                 ) from exc
             except Exception as exc:
                 raise RuntimeError(
@@ -196,8 +193,7 @@ class YOLOFaceDetector(BaseDetector):
 
             elapsed = self._timer() - t0
             logger.success(
-                f"YOLOv8 face detector ready in {elapsed:.0f} ms | "
-                f"device={self.device}"
+                f"YOLOv8 face detector ready in {elapsed:.0f} ms | " f"device={self.device}"
             )
 
     # ------------------------------------------------------------------
@@ -243,7 +239,7 @@ class YOLOFaceDetector(BaseDetector):
                 imgsz=self.input_size,
                 device=self.device,
                 half=self.half_precision,
-                verbose=False,          # Suppress Ultralytics console spam
+                verbose=False,  # Suppress Ultralytics console spam
                 save=False,
                 stream=False,
             )
@@ -263,9 +259,7 @@ class YOLOFaceDetector(BaseDetector):
         faces = self._parse_results(results, src_w=w, src_h=h)
 
         faces = [
-            f for f in faces
-            if f.width >= self.min_face_size
-            and f.height >= self.min_face_size
+            f for f in faces if f.width >= self.min_face_size and f.height >= self.min_face_size
         ]
 
         faces = self._sort_faces(faces, strategy=self.sort_by)
@@ -290,9 +284,7 @@ class YOLOFaceDetector(BaseDetector):
         )
 
         logger.debug(
-            f"Detected {detection.num_faces} face(s) | "
-            f"{w}×{h} px | "
-            f"{inference_ms:.1f} ms"
+            f"Detected {detection.num_faces} face(s) | " f"{w}×{h} px | " f"{inference_ms:.1f} ms"
         )
 
         return detection
@@ -329,7 +321,7 @@ class YOLOFaceDetector(BaseDetector):
 
         # Decode all inputs to BGR ndarrays
         bgr_list = [self._to_bgr(img) for img in images]
-        shapes   = [(img.shape[1], img.shape[0]) for img in bgr_list]  # (w, h)
+        shapes = [(img.shape[1], img.shape[0]) for img in bgr_list]  # (w, h)
 
         t0 = self._timer()
 
@@ -353,23 +345,20 @@ class YOLOFaceDetector(BaseDetector):
             return super().detect_batch(images, show_progress=show_progress)
 
         total_ms = self._timer() - t0
-        per_ms   = total_ms / len(images)
+        per_ms = total_ms / len(images)
 
         detection_results: List[DetectionResult] = []
 
         iterable = zip(batch_results, shapes)
         if show_progress:
             from tqdm import tqdm
-            iterable = tqdm(
-                list(iterable), desc="Processing detections", unit="img"
-            )
+
+            iterable = tqdm(list(iterable), desc="Processing detections", unit="img")
 
         for idx, (yolo_res, (w, h)) in enumerate(iterable):
             faces = self._parse_single_result(yolo_res, src_w=w, src_h=h)
             faces = [
-                f for f in faces
-                if f.width >= self.min_face_size
-                and f.height >= self.min_face_size
+                f for f in faces if f.width >= self.min_face_size and f.height >= self.min_face_size
             ]
             faces = self._sort_faces(faces, strategy=self.sort_by)
             for i, face in enumerate(faces):
@@ -548,9 +537,7 @@ class YOLOFaceDetector(BaseDetector):
             label = " ".join(parts)
 
             if label:
-                (tw, th), baseline = cv2.getTextSize(
-                    label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1
-                )
+                (tw, th), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1)
                 bg_y1 = max(y1 - th - 8, 0)
                 # Label background
                 cv2.rectangle(
@@ -561,7 +548,8 @@ class YOLOFaceDetector(BaseDetector):
                     -1,
                 )
                 cv2.putText(
-                    vis, label,
+                    vis,
+                    label,
                     (x1 + 3, y1 - 4),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     font_scale,
@@ -576,7 +564,8 @@ class YOLOFaceDetector(BaseDetector):
 
         summary = f"Faces: {result.num_faces}  |  {result.inference_time_ms:.0f} ms"
         cv2.putText(
-            vis, summary,
+            vis,
+            summary,
             (10, vis.shape[0] - 10),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.55,
@@ -600,17 +589,17 @@ class YOLOFaceDetector(BaseDetector):
             conf_threshold, iou_threshold, max_faces, is_loaded.
         """
         return {
-            "name":             self.model_name,
-            "path":             str(self.model_path),
-            "device":           self.device,
-            "input_size":       self.input_size,
-            "conf_threshold":   self.confidence_threshold,
-            "iou_threshold":    self.iou_threshold,
-            "max_faces":        self.max_faces,
-            "half_precision":   self.half_precision,
-            "min_face_size":    self.min_face_size,
-            "sort_by":          self.sort_by,
-            "is_loaded":        self._is_loaded,
+            "name": self.model_name,
+            "path": str(self.model_path),
+            "device": self.device,
+            "input_size": self.input_size,
+            "conf_threshold": self.confidence_threshold,
+            "iou_threshold": self.iou_threshold,
+            "max_faces": self.max_faces,
+            "half_precision": self.half_precision,
+            "min_face_size": self.min_face_size,
+            "sort_by": self.sort_by,
+            "is_loaded": self._is_loaded,
         }
 
     def warmup(self, iterations: int = 3) -> float:
@@ -655,6 +644,7 @@ class YOLOFaceDetector(BaseDetector):
             if "cuda" in self.device:
                 try:
                     import torch
+
                     torch.cuda.empty_cache()
                     logger.debug("CUDA cache cleared.")
                 except ImportError:
@@ -708,8 +698,8 @@ class YOLOFaceDetector(BaseDetector):
 
         # Move tensors to CPU + numpy
         try:
-            xyxy  = boxes.xyxy.cpu().numpy()    # shape (N, 4)
-            confs = boxes.conf.cpu().numpy()     # shape (N,)
+            xyxy = boxes.xyxy.cpu().numpy()  # shape (N, 4)
+            confs = boxes.conf.cpu().numpy()  # shape (N,)
         except (AttributeError, IndexError, RuntimeError) as exc:
             logger.warning(f"Failed to parse YOLO boxes: {exc}")
             return []
@@ -718,7 +708,7 @@ class YOLOFaceDetector(BaseDetector):
         landmarks_array: Optional[np.ndarray] = None
         try:
             if yolo_result.keypoints is not None:
-                kp_data = yolo_result.keypoints.xy.cpu().numpy()   # (N, 5, 2)
+                kp_data = yolo_result.keypoints.xy.cpu().numpy()  # (N, 5, 2)
                 landmarks_array = kp_data
         except (AttributeError, RuntimeError):
             landmarks_array = None
@@ -792,9 +782,7 @@ class YOLOFaceDetector(BaseDetector):
         elif strategy == "top_to_bottom":
             return sorted(faces, key=lambda f: f.y1)
         else:
-            logger.warning(
-                f"Unknown sort strategy {strategy!r} — using 'confidence'."
-            )
+            logger.warning(f"Unknown sort strategy {strategy!r} — using 'confidence'.")
             return sorted(faces, key=lambda f: f.confidence, reverse=True)
 
     @staticmethod
@@ -841,6 +829,7 @@ class YOLOFaceDetector(BaseDetector):
         # PIL.Image.Image (lazy import)
         try:
             from PIL import Image as PILImage
+
             if isinstance(source, PILImage.Image):
                 rgb = np.array(source.convert("RGB"), dtype=np.uint8)
                 return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)

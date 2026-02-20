@@ -37,7 +37,7 @@ class FaceAttribute:
     """
 
     age: Optional[float] = None
-    gender: Optional[str] = None          # 'M' | 'F'
+    gender: Optional[str] = None  # 'M' | 'F'
     gender_score: Optional[float] = None  # confidence [0, 1]
     embedding_norm: Optional[float] = None
 
@@ -65,6 +65,7 @@ class FaceAttribute:
 
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class FaceEmbedding:
     """
@@ -86,7 +87,7 @@ class FaceEmbedding:
         landmarks:    Optional (5, 2) float32 facial landmark array.
     """
 
-    vector: np.ndarray                       # shape (D,) float32
+    vector: np.ndarray  # shape (D,) float32
     face_index: int = 0
     source_path: Optional[str] = None
     attributes: Optional[FaceAttribute] = None
@@ -187,6 +188,7 @@ class FaceEmbedding:
 
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class FaceMatch:
     """
@@ -240,6 +242,7 @@ class FaceMatch:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class RecognitionResult:
@@ -329,9 +332,7 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
         ValueError: If vectors have different shapes.
     """
     if a.shape != b.shape:
-        raise ValueError(
-            f"Shape mismatch: a={a.shape}, b={b.shape}"
-        )
+        raise ValueError(f"Shape mismatch: a={a.shape}, b={b.shape}")
     norm_a = np.linalg.norm(a)
     norm_b = np.linalg.norm(b)
     if norm_a < 1e-10 or norm_b < 1e-10:
@@ -394,9 +395,9 @@ def average_embeddings(embeddings: List[np.ndarray]) -> np.ndarray:
     if not embeddings:
         raise ValueError("Cannot average an empty list of embeddings.")
 
-    stacked = np.stack(embeddings, axis=0)   # (N, D)
-    mean    = stacked.mean(axis=0)            # (D,)
-    norm    = np.linalg.norm(mean)
+    stacked = np.stack(embeddings, axis=0)  # (N, D)
+    mean = stacked.mean(axis=0)  # (D,)
+    norm = np.linalg.norm(mean)
     if norm < 1e-10:
         return mean
     return (mean / norm).astype(np.float32)
@@ -529,10 +530,7 @@ class BaseRecognizer(ABC):
         """
         self._require_loaded()
         bboxes = bboxes or [None] * len(images)
-        return [
-            self.get_embedding(img, bbox=bb)
-            for img, bb in zip(images, bboxes)
-        ]
+        return [self.get_embedding(img, bbox=bb) for img, bb in zip(images, bboxes)]
 
     def compare(
         self,
@@ -627,13 +625,9 @@ class BaseRecognizer(ABC):
         if image is None:
             raise ValueError("Image is None.")
         if not isinstance(image, np.ndarray):
-            raise ValueError(
-                f"Expected numpy ndarray, got {type(image).__name__}."
-            )
+            raise ValueError(f"Expected numpy ndarray, got {type(image).__name__}.")
         if image.ndim not in (2, 3):
-            raise ValueError(
-                f"Expected 2-D or 3-D array, got shape {image.shape}."
-            )
+            raise ValueError(f"Expected 2-D or 3-D array, got shape {image.shape}.")
         if image.size == 0:
             raise ValueError("Image array is empty (zero size).")
 

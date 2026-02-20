@@ -40,8 +40,9 @@ class BlendMode(Enum):
     MASKED_ALPHA  — Alpha blend using a custom skin-aware mask.
                     Better boundary handling than plain ALPHA.
     """
-    ALPHA        = auto()
-    POISSON      = auto()
+
+    ALPHA = auto()
+    POISSON = auto()
     MASKED_ALPHA = auto()
 
 
@@ -57,12 +58,13 @@ class SwapStatus(Enum):
     BLEND_ERROR     — Paste-back or blending operation failed.
     MODEL_NOT_LOADED— Swap attempted before load_model() was called.
     """
-    SUCCESS          = "success"
-    NO_SOURCE_FACE   = "no_source_face"
-    NO_TARGET_FACE   = "no_target_face"
-    INFERENCE_ERROR  = "inference_error"
-    ALIGN_ERROR      = "align_error"
-    BLEND_ERROR      = "blend_error"
+
+    SUCCESS = "success"
+    NO_SOURCE_FACE = "no_source_face"
+    NO_TARGET_FACE = "no_target_face"
+    INFERENCE_ERROR = "inference_error"
+    ALIGN_ERROR = "align_error"
+    BLEND_ERROR = "blend_error"
     MODEL_NOT_LOADED = "model_not_loaded"
 
 
@@ -91,22 +93,20 @@ class SwapRequest:
         metadata:           Optional free-form dict for debugging / tracing.
     """
 
-    source_embedding:   FaceEmbedding
-    target_image:       np.ndarray
-    target_face:        FaceBox
-    source_face_index:  int = 0
-    target_face_index:  int = 0
-    blend_mode:         BlendMode = BlendMode.POISSON
-    blend_alpha:        float = 1.0
-    mask_feather:       int = 20
+    source_embedding: FaceEmbedding
+    target_image: np.ndarray
+    target_face: FaceBox
+    source_face_index: int = 0
+    target_face_index: int = 0
+    blend_mode: BlendMode = BlendMode.POISSON
+    blend_alpha: float = 1.0
+    mask_feather: int = 20
     enhance_after_swap: bool = False
-    metadata:           dict = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.blend_alpha <= 1.0:
-            raise ValueError(
-                f"blend_alpha must be in [0.0, 1.0], got {self.blend_alpha}"
-            )
+            raise ValueError(f"blend_alpha must be in [0.0, 1.0], got {self.blend_alpha}")
 
     # ------------------------------------------------------------------
     # Convenience helpers
@@ -135,6 +135,7 @@ class SwapRequest:
 
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class SwapResult:
     """
@@ -155,15 +156,15 @@ class SwapResult:
                             (aligned_face, swapped_patch, mask, …).
     """
 
-    output_image:       np.ndarray
-    status:             SwapStatus
-    target_face:        FaceBox
-    swap_time_ms:       float = 0.0
-    inference_time_ms:  float = 0.0
-    align_time_ms:      float = 0.0
-    blend_time_ms:      float = 0.0
-    error:              Optional[str] = None
-    intermediate:       Optional[dict] = field(default=None, repr=False)
+    output_image: np.ndarray
+    status: SwapStatus
+    target_face: FaceBox
+    swap_time_ms: float = 0.0
+    inference_time_ms: float = 0.0
+    align_time_ms: float = 0.0
+    blend_time_ms: float = 0.0
+    error: Optional[str] = None
+    intermediate: Optional[dict] = field(default=None, repr=False)
 
     # ------------------------------------------------------------------
     # Convenience helpers
@@ -187,14 +188,11 @@ class SwapResult:
                 f"total={self.swap_time_ms:.1f}ms, "
                 f"inference={self.inference_time_ms:.1f}ms)"
             )
-        return (
-            f"SwapResult("
-            f"status={self.status.value}, "
-            f"error={self.error!r})"
-        )
+        return f"SwapResult(" f"status={self.status.value}, " f"error={self.error!r})"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class BatchSwapResult:
@@ -208,10 +206,10 @@ class BatchSwapResult:
         frame_index:    Optional frame number (video pipelines).
     """
 
-    output_image:  np.ndarray
-    swap_results:  List[SwapResult]
+    output_image: np.ndarray
+    swap_results: List[SwapResult]
     total_time_ms: float = 0.0
-    frame_index:   Optional[int] = None
+    frame_index: Optional[int] = None
 
     @property
     def num_swapped(self) -> int:
@@ -346,11 +344,11 @@ def estimate_landmarks_from_bbox(bbox: FaceBox) -> np.ndarray:
     # Typical facial proportions as fractions of bbox
     lm = np.array(
         [
-            [x1 + w * 0.30, y1 + h * 0.37],   # left eye
-            [x1 + w * 0.70, y1 + h * 0.37],   # right eye
-            [x1 + w * 0.50, y1 + h * 0.55],   # nose tip
-            [x1 + w * 0.35, y1 + h * 0.75],   # left mouth corner
-            [x1 + w * 0.65, y1 + h * 0.75],   # right mouth corner
+            [x1 + w * 0.30, y1 + h * 0.37],  # left eye
+            [x1 + w * 0.70, y1 + h * 0.37],  # right eye
+            [x1 + w * 0.50, y1 + h * 0.55],  # nose tip
+            [x1 + w * 0.35, y1 + h * 0.75],  # left mouth corner
+            [x1 + w * 0.65, y1 + h * 0.75],  # right mouth corner
         ],
         dtype=np.float32,
     )
@@ -405,12 +403,9 @@ def paste_back(
     )
 
     alpha = warped_mask.astype(np.float32) / 255.0
-    alpha = alpha[:, :, np.newaxis]   # (H, W, 1)
+    alpha = alpha[:, :, np.newaxis]  # (H, W, 1)
 
-    result = (
-        warped_face.astype(np.float32) * alpha
-        + original.astype(np.float32) * (1.0 - alpha)
-    )
+    result = warped_face.astype(np.float32) * alpha + original.astype(np.float32) * (1.0 - alpha)
     return np.clip(result, 0, 255).astype(np.uint8)
 
 
@@ -439,18 +434,22 @@ def paste_back_poisson(
     crop_size = swapped_crop.shape[0]
 
     if mask is None:
-        mask = _make_crop_mask(crop_size, feather=0)   # hard mask for Poisson
+        mask = _make_crop_mask(crop_size, feather=0)  # hard mask for Poisson
 
     inv_M = cv2.invertAffineTransform(affine_matrix)
 
     # Warp crop and mask back to full frame space
     warped_face = cv2.warpAffine(
-        swapped_crop, inv_M, (W, H),
+        swapped_crop,
+        inv_M,
+        (W, H),
         flags=cv2.INTER_LINEAR,
         borderMode=cv2.BORDER_REPLICATE,
     )
     warped_mask = cv2.warpAffine(
-        mask, inv_M, (W, H),
+        mask,
+        inv_M,
+        (W, H),
         flags=cv2.INTER_NEAREST,
         borderValue=0,
     )
@@ -528,17 +527,17 @@ class BaseSwapper(ABC):
             mask_feather: Default Gaussian blur radius for mask edges (px).
             input_size:   Square input resolution expected by the model (128).
         """
-        self.model_path   = model_path
-        self.providers    = providers or [
+        self.model_path = model_path
+        self.providers = providers or [
             "CUDAExecutionProvider",
             "CPUExecutionProvider",
         ]
-        self.blend_mode   = blend_mode
-        self.blend_alpha  = float(blend_alpha)
+        self.blend_mode = blend_mode
+        self.blend_alpha = float(blend_alpha)
         self.mask_feather = int(mask_feather)
-        self.input_size   = int(input_size)
+        self.input_size = int(input_size)
 
-        self._model      = None
+        self._model = None
         self._is_loaded: bool = False
 
     # ------------------------------------------------------------------
@@ -612,7 +611,7 @@ class BaseSwapper(ABC):
         """
         self._require_loaded()
 
-        t0      = self._timer()
+        t0 = self._timer()
         current = target_image.copy()
         results: List[SwapResult] = []
 
@@ -652,8 +651,8 @@ class BaseSwapper(ABC):
         The default clears ``self._model`` and resets ``self._is_loaded``.
         Subclasses should call ``super().release()`` after their cleanup.
         """
-        self._model      = None
-        self._is_loaded  = False
+        self._model = None
+        self._is_loaded = False
 
     # ------------------------------------------------------------------
     # Properties
@@ -668,6 +667,7 @@ class BaseSwapper(ABC):
     def model_name(self) -> str:
         """Human-readable model identifier."""
         import os
+
         return os.path.basename(self.model_path)
 
     # ------------------------------------------------------------------
@@ -716,13 +716,9 @@ class BaseSwapper(ABC):
         if image is None:
             raise ValueError("Image is None.")
         if not isinstance(image, np.ndarray):
-            raise ValueError(
-                f"Expected numpy ndarray, got {type(image).__name__}."
-            )
+            raise ValueError(f"Expected numpy ndarray, got {type(image).__name__}.")
         if image.ndim != 3 or image.shape[2] != 3:
-            raise ValueError(
-                f"Expected BGR (H, W, 3) array, got shape {image.shape}."
-            )
+            raise ValueError(f"Expected BGR (H, W, 3) array, got shape {image.shape}.")
         if image.size == 0:
             raise ValueError("Image array is empty.")
 
@@ -779,8 +775,9 @@ class BaseSwapper(ABC):
         """
         try:
             import onnxruntime as ort  # noqa: PLC0415
+
             available = set(ort.get_available_providers())
-            resolved  = [p for p in requested if p in available]
+            resolved = [p for p in requested if p in available]
             return resolved or ["CPUExecutionProvider"]
         except ImportError:
             return ["CPUExecutionProvider"]

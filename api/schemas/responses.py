@@ -59,7 +59,8 @@ class DetectedFace(BaseModel):
     face_index: int = Field(..., description="Zero-based index of this face in the image.")
     bbox: BoundingBox = Field(..., description="Bounding box in pixel coordinates.")
     landmarks: Optional[List[LandmarkPoint]] = Field(
-        None, description="5-point facial landmarks [left_eye, right_eye, nose, left_mouth, right_mouth]."
+        None,
+        description="5-point facial landmarks [left_eye, right_eye, nose, left_mouth, right_mouth].",
     )
     attributes: Optional[FaceAttributeResponse] = Field(
         None, description="Predicted demographic attributes (if requested)."
@@ -68,9 +69,10 @@ class DetectedFace(BaseModel):
 
 class ComponentStatus(str, Enum):
     """Status of an individual system component."""
-    OK      = "ok"
+
+    OK = "ok"
     DEGRADED = "degraded"
-    DOWN    = "down"
+    DOWN = "down"
     UNKNOWN = "unknown"
 
 
@@ -109,10 +111,10 @@ class HealthResponse(BaseModel):
                 "environment": "development",
                 "uptime_seconds": 42.3,
                 "components": {
-                    "detector":  {"status": "ok", "loaded": True,  "detail": None},
+                    "detector": {"status": "ok", "loaded": True, "detail": None},
                     "recognizer": {"status": "ok", "loaded": True, "detail": None},
-                    "swapper":   {"status": "ok", "loaded": True,  "detail": None},
-                    "enhancer":  {"status": "ok", "loaded": False, "detail": "disabled"},
+                    "swapper": {"status": "ok", "loaded": True, "detail": None},
+                    "enhancer": {"status": "ok", "loaded": False, "detail": "disabled"},
                 },
             }
         }
@@ -128,15 +130,11 @@ class FaceMatchResponse(BaseModel):
     identity_id: Optional[str] = Field(
         None, description="UUID of the matched identity, or null if unknown."
     )
-    similarity: float = Field(
-        ..., ge=0.0, le=1.0, description="Cosine similarity score [0, 1]."
-    )
+    similarity: float = Field(..., ge=0.0, le=1.0, description="Cosine similarity score [0, 1].")
     is_known: bool = Field(
         ..., description="True if similarity exceeded the recognition threshold."
     )
-    threshold_used: float = Field(
-        ..., description="Cosine similarity threshold that was applied."
-    )
+    threshold_used: float = Field(..., description="Cosine similarity threshold that was applied.")
 
 
 class RecognizedFace(BaseModel):
@@ -161,9 +159,7 @@ class RecognizeResponse(BaseModel):
     """
 
     num_faces_detected: int = Field(..., description="Total faces found by the detector.")
-    num_faces_recognized: int = Field(
-        ..., description="Faces matched to a known identity."
-    )
+    num_faces_recognized: int = Field(..., description="Faces matched to a known identity.")
     faces: List[RecognizedFace] = Field(
         default_factory=list, description="Per-face recognition results."
     )
@@ -218,9 +214,7 @@ class RegisterResponse(BaseModel):
     total_embeddings: int = Field(
         ..., description="Total embeddings stored for this identity after the update."
     )
-    faces_detected: int = Field(
-        ..., description="Number of faces detected in the uploaded image."
-    )
+    faces_detected: int = Field(..., description="Number of faces detected in the uploaded image.")
     message: str = Field(..., description="Human-readable status message.")
 
     model_config = {
@@ -256,9 +250,7 @@ class SwappedFaceInfo(BaseModel):
     timing: Optional[SwapTimingBreakdown] = Field(
         None, description="Timing breakdown for this face swap."
     )
-    error: Optional[str] = Field(
-        None, description="Error description if success=False, else null."
-    )
+    error: Optional[str] = Field(None, description="Error description if success=False, else null.")
 
 
 class SwapResponse(BaseModel):
@@ -283,12 +275,8 @@ class SwapResponse(BaseModel):
             "Present when return_base64=true was requested."
         ),
     )
-    num_faces_swapped: int = Field(
-        ..., description="Number of faces successfully swapped."
-    )
-    num_faces_failed: int = Field(
-        ..., description="Number of faces that failed to swap."
-    )
+    num_faces_swapped: int = Field(..., description="Number of faces successfully swapped.")
+    num_faces_failed: int = Field(..., description="Number of faces that failed to swap.")
     faces: List[SwappedFaceInfo] = Field(
         default_factory=list, description="Per-face swap result details."
     )

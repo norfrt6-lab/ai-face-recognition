@@ -83,10 +83,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     try:
         from config.settings import settings  # noqa: PLC0415
-        logger.info(
-            f"Settings loaded | env={settings.environment} "
-            f"v={settings.app_version}"
-        )
+
+        logger.info(f"Settings loaded | env={settings.environment} " f"v={settings.app_version}")
     except Exception as exc:
         logger.warning(f"Could not load settings: {exc} — using defaults.")
         settings = None
@@ -110,11 +108,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.warning(f"Could not run model integrity checks: {exc}")
 
-    output_dir = (
-        Path(settings.storage.output_dir)
-        if settings
-        else Path("output")
-    )
+    output_dir = Path(settings.storage.output_dir) if settings else Path("output")
     output_dir.mkdir(parents=True, exist_ok=True)
     app.state.output_dir = output_dir
 
@@ -122,16 +116,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         from core.detector.yolo_detector import YOLOFaceDetector  # noqa: PLC0415
 
-        model_path = (
-            settings.detector.model_path
-            if settings
-            else "models/yolov8n-face.pt"
-        )
-        device = (
-            settings.detector.device
-            if settings
-            else "cpu"
-        )
+        model_path = settings.detector.model_path if settings else "models/yolov8n-face.pt"
+        device = settings.detector.device if settings else "cpu"
         detector = YOLOFaceDetector(
             model_path=model_path,
             device=device,
@@ -146,16 +132,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         from core.recognizer.insightface_recognizer import InsightFaceRecognizer  # noqa: PLC0415
 
-        model_pack = (
-            settings.recognizer.model_pack
-            if settings
-            else "buffalo_l"
-        )
-        model_root = (
-            settings.recognizer.model_root
-            if settings
-            else "models"
-        )
+        model_pack = settings.recognizer.model_pack if settings else "buffalo_l"
+        model_root = settings.recognizer.model_root if settings else "models"
         recognizer = InsightFaceRecognizer(
             model_pack=model_pack,
             model_root=model_root,
@@ -170,11 +148,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         from core.swapper.inswapper import InSwapper  # noqa: PLC0415
 
-        swap_model_path = (
-            settings.swapper.model_path
-            if settings
-            else "models/inswapper_128.onnx"
-        )
+        swap_model_path = settings.swapper.model_path if settings else "models/inswapper_128.onnx"
         providers = (
             settings.swapper.providers
             if settings
@@ -236,10 +210,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         db_file = Path(db_path)
         if db_file.exists():
             face_db = FaceDatabase.load(db_path)
-            logger.success(
-                f"Face database loaded: {db_file} "
-                f"({face_db.count} identities)"
-            )
+            logger.success(f"Face database loaded: {db_file} " f"({face_db.count} identities)")
         else:
             face_db = FaceDatabase()
             logger.info(f"Face database: starting fresh (will save to {db_path})")
@@ -296,16 +267,17 @@ def create_app() -> FastAPI:
     """
     try:
         from config.settings import settings  # noqa: PLC0415
-        _version     = settings.app_version
-        _title       = settings.app_name
+
+        _version = settings.app_version
+        _title = settings.app_name
         _environment = settings.environment
-        _debug       = _environment == "development"
-        _api_prefix   = settings.api.api_prefix
+        _debug = _environment == "development"
+        _api_prefix = settings.api.api_prefix
     except Exception:
-        _version      = "1.0.0"
-        _title        = "AI Face Recognition & Swap"
-        _debug        = False
-        _api_prefix   = "/api/v1"
+        _version = "1.0.0"
+        _title = "AI Face Recognition & Swap"
+        _debug = False
+        _api_prefix = "/api/v1"
 
     app = FastAPI(
         title=_title,
@@ -328,15 +300,17 @@ def create_app() -> FastAPI:
     )
 
     from api.middleware.cors import configure_middleware  # noqa: PLC0415
+
     configure_middleware(app)
 
-    app.include_router(health.router,      prefix=_api_prefix)
+    app.include_router(health.router, prefix=_api_prefix)
     app.include_router(recognition.router, prefix=_api_prefix)
-    app.include_router(swap.router,        prefix=_api_prefix)
+    app.include_router(swap.router, prefix=_api_prefix)
 
     from api.metrics import METRICS_AVAILABLE  # noqa: PLC0415
+
     if METRICS_AVAILABLE:
-        from api.metrics import generate_latest, CONTENT_TYPE_LATEST  # noqa: PLC0415
+        from api.metrics import CONTENT_TYPE_LATEST, generate_latest  # noqa: PLC0415
 
         @app.get("/metrics", include_in_schema=False)
         async def metrics():
@@ -347,6 +321,7 @@ def create_app() -> FastAPI:
 
     try:
         from config.settings import settings as _settings  # noqa: PLC0415
+
         output_dir = Path(_settings.storage.output_dir)
     except Exception:
         output_dir = Path("output")
@@ -374,9 +349,9 @@ def _register_exception_handlers(app: FastAPI) -> None:
         """Return a structured 422 for Pydantic / FastAPI validation errors."""
         details = []
         for error in exc.errors():
-            loc   = " → ".join(str(l) for l in error.get("loc", []))
-            msg   = error.get("msg", "Validation error")
-            code  = error.get("type", "validation_error")
+            loc = " → ".join(str(l) for l in error.get("loc", []))
+            msg = error.get("msg", "Validation error")
+            code = error.get("type", "validation_error")
             details.append(ErrorDetail(field=loc or None, message=msg, code=code))
 
         return JSONResponse(
@@ -416,6 +391,7 @@ def _register_exception_handlers(app: FastAPI) -> None:
         details = []
         if app.debug:
             import traceback
+
             message = f"{type(exc).__name__}: {exc}"
             details = [ErrorDetail(message=line) for line in traceback.format_tb(exc.__traceback__)]
         return JSONResponse(
@@ -458,8 +434,8 @@ async def root() -> JSONResponse:
     return JSONResponse(
         content={
             "message": "AI Face Recognition & Swap API",
-            "docs":    "/docs",
-            "redoc":   "/redoc",
-            "health":  "/api/v1/health",
+            "docs": "/docs",
+            "redoc": "/redoc",
+            "health": "/api/v1/health",
         }
     )

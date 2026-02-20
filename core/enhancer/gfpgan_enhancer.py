@@ -97,13 +97,13 @@ class GFPGANEnhancer(BaseEnhancer):
             paste_back=paste_back,
             device=device,
         )
-        self.arch               = arch
+        self.arch = arch
         self.channel_multiplier = channel_multiplier
-        self.bg_upsampler_name  = bg_upsampler  # string name; actual object built in load_model
+        self.bg_upsampler_name = bg_upsampler  # string name; actual object built in load_model
 
         # Populated by load_model()
-        self._restorer      = None   # GFPGANer instance
-        self._bg_upsampler  = None   # Optional RealESRGANer
+        self._restorer = None  # GFPGANer instance
+        self._bg_upsampler = None  # Optional RealESRGANer
 
     # ------------------------------------------------------------------
     # BaseEnhancer interface — load_model
@@ -130,8 +130,7 @@ class GFPGANEnhancer(BaseEnhancer):
             from gfpgan import GFPGANer  # noqa: PLC0415
         except ImportError as exc:
             raise ImportError(
-                "gfpgan package is not installed. Install it with:\n"
-                "  pip install gfpgan>=1.3.8"
+                "gfpgan package is not installed. Install it with:\n" "  pip install gfpgan>=1.3.8"
             ) from exc
 
         # Resolve device
@@ -160,7 +159,7 @@ class GFPGANEnhancer(BaseEnhancer):
             ) from exc
 
         self._bg_upsampler = bg_upsampler_obj
-        self._is_loaded    = True
+        self._is_loaded = True
         logger.success(
             f"GFPGANEnhancer loaded | "
             f"arch={self.arch} | upscale={self.upscale}x | "
@@ -217,11 +216,7 @@ class GFPGANEnhancer(BaseEnhancer):
             if request.only_center_face is not None
             else self.only_center_face
         )
-        paste_back = (
-            request.paste_back
-            if request.paste_back is not None
-            else self.paste_back
-        )
+        paste_back = request.paste_back if request.paste_back is not None else self.paste_back
 
         # Pad to minimum size (GFPGAN needs at least 128px sides)
         padded, padding = pad_image_for_enhancement(request.image, min_size=128)
@@ -270,7 +265,7 @@ class GFPGANEnhancer(BaseEnhancer):
 
         # Update stats
         with self._stats_lock:
-            self._total_calls     += 1
+            self._total_calls += 1
             self._total_inference += inference_time
         total_time = self._timer() - t0
 
@@ -296,7 +291,7 @@ class GFPGANEnhancer(BaseEnhancer):
 
     def release(self) -> None:
         """Free the GFPGAN restorer and background upsampler."""
-        self._restorer     = None
+        self._restorer = None
         self._bg_upsampler = None
         super().release()
         logger.info("GFPGANEnhancer released.")
@@ -320,17 +315,20 @@ class GFPGANEnhancer(BaseEnhancer):
         """
         try:
             from basicsr.archs.rrdbnet_arch import RRDBNet  # noqa: PLC0415
-            from realesrgan import RealESRGANer              # noqa: PLC0415
+            from realesrgan import RealESRGANer  # noqa: PLC0415
 
             model = RRDBNet(
-                num_in_ch=3, num_out_ch=3,
-                num_feat=64, num_block=23,
-                num_grow_ch=32, scale=2,
+                num_in_ch=3,
+                num_out_ch=3,
+                num_feat=64,
+                num_block=23,
+                num_grow_ch=32,
+                scale=2,
             )
             upsampler = RealESRGANer(
                 scale=2,
                 model_path="https://github.com/xinntao/Real-ESRGAN/"
-                           "releases/download/v0.2.1/RealESRGAN_x2plus.pth",
+                "releases/download/v0.2.1/RealESRGAN_x2plus.pth",
                 model=model,
                 tile=400,
                 tile_pad=10,

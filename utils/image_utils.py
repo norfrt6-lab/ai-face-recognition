@@ -8,14 +8,14 @@ from typing import List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
 from loguru import logger
+from PIL import Image, ImageDraw, ImageFont
 
 # ── Type aliases ────────────────────────────────────────────
 # All internal frames are np.ndarray in BGR uint8 (OpenCV convention)
-Frame = np.ndarray          # shape (H, W, 3) or (H, W, 4)  dtype=uint8
-BBox  = Tuple[int, int, int, int]   # (x1, y1, x2, y2)
-Point = Tuple[int, int]             # (x, y)
+Frame = np.ndarray  # shape (H, W, 3) or (H, W, 4)  dtype=uint8
+BBox = Tuple[int, int, int, int]  # (x1, y1, x2, y2)
+Point = Tuple[int, int]  # (x, y)
 
 
 def load_image(
@@ -237,10 +237,10 @@ def letterbox(
     resized = cv2.resize(image, (nw, nh), interpolation=cv2.INTER_LINEAR)
 
     pad_left = (tw - nw) // 2
-    pad_top  = (th - nh) // 2
+    pad_top = (th - nh) // 2
 
     out = np.full((th, tw, 3), color, dtype=np.uint8)
-    out[pad_top:pad_top + nh, pad_left:pad_left + nw] = resized
+    out[pad_top : pad_top + nh, pad_left : pad_left + nw] = resized
     return out, scale, (pad_left, pad_top)
 
 
@@ -334,6 +334,7 @@ def align_face(
     Delegates to the shared norm_crop implementation in base_swapper.
     """
     from core.swapper.base_swapper import norm_crop
+
     crop, M = norm_crop(image, landmarks, output_size=output_size)
     if crop is None or M is None:
         raise ValueError("Could not estimate affine transform from landmarks.")
@@ -385,6 +386,7 @@ def paste_face_back(
 
 def _create_face_mask(height: int, width: int, feather: int = 20) -> np.ndarray:
     from utils.mask_utils import ellipse_mask
+
     return ellipse_mask(height, width, feather=feather)
 
 
@@ -486,7 +488,7 @@ def add_watermark(
     """
     overlay = image.copy()
     h, w = image.shape[:2]
-    font      = cv2.FONT_HERSHEY_SIMPLEX
+    font = cv2.FONT_HERSHEY_SIMPLEX
     thickness = max(1, int(font_scale * 1.5))
 
     (tw, th), baseline = cv2.getTextSize(text, font, font_scale, thickness)
@@ -505,7 +507,16 @@ def add_watermark(
 
     # Shadow for readability
     shadow_color = (0, 0, 0)
-    cv2.putText(overlay, text, (org[0] + 1, org[1] + 1), font, font_scale, shadow_color, thickness + 1, cv2.LINE_AA)
+    cv2.putText(
+        overlay,
+        text,
+        (org[0] + 1, org[1] + 1),
+        font,
+        font_scale,
+        shadow_color,
+        thickness + 1,
+        cv2.LINE_AA,
+    )
     cv2.putText(overlay, text, org, font, font_scale, color, thickness, cv2.LINE_AA)
 
     return cv2.addWeighted(overlay, alpha, image, 1.0 - alpha, 0)
@@ -551,8 +562,14 @@ def draw_bboxes(
             bg_y1 = max(y1 - th - 8, 0)
             cv2.rectangle(out, (x1, bg_y1), (x1 + tw + 4, y1), color, -1)
             cv2.putText(
-                out, label_text, (x1 + 2, y1 - 4),
-                cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), 1, cv2.LINE_AA,
+                out,
+                label_text,
+                (x1 + 2, y1 - 4),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                font_scale,
+                (0, 0, 0),
+                1,
+                cv2.LINE_AA,
             )
     return out
 
@@ -619,17 +636,21 @@ def side_by_side(
     Both images are resized to the same height as the taller one.
     """
     h = max(left.shape[0], right.shape[0])
-    left_r  = resize_image(left,  height=h) if left.shape[0]  != h else left
+    left_r = resize_image(left, height=h) if left.shape[0] != h else left
     right_r = resize_image(right, height=h) if right.shape[0] != h else right
 
     # Add labels
     def _label(img: Frame, text: str) -> Frame:
         labeled = img.copy()
-        cv2.putText(labeled, text, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 0), 3, cv2.LINE_AA)
-        cv2.putText(labeled, text, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 1, cv2.LINE_AA)
+        cv2.putText(
+            labeled, text, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 0), 3, cv2.LINE_AA
+        )
+        cv2.putText(
+            labeled, text, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 1, cv2.LINE_AA
+        )
         return labeled
 
-    left_r  = _label(left_r,  label_left)
+    left_r = _label(left_r, label_left)
     right_r = _label(right_r, label_right)
 
     sep = np.full((h, separator_width, 3), separator_color, dtype=np.uint8)

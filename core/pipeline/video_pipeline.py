@@ -14,9 +14,9 @@
 
 from __future__ import annotations
 
-import time
-import threading
 import queue
+import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterator, List, Optional
@@ -26,10 +26,10 @@ import numpy as np
 from tqdm import tqdm
 
 from core.detector.base_detector import BaseDetector, DetectionResult
+from core.enhancer.base_enhancer import BaseEnhancer, EnhancementRequest
 from core.recognizer.base_recognizer import BaseRecognizer, FaceEmbedding
 from core.swapper.base_swapper import BaseSwapper, BlendMode, SwapRequest
 from core.swapper.inswapper import InSwapper
-from core.enhancer.base_enhancer import BaseEnhancer, EnhancementRequest
 from core.tracker.iou_tracker import IoUTracker
 from utils.logger import get_logger
 
@@ -71,29 +71,27 @@ class VideoProcessingConfig:
                              Streamlit to update a progress bar.
     """
 
-    source_embedding:  FaceEmbedding
+    source_embedding: FaceEmbedding
 
-    blend_mode:        BlendMode  = BlendMode.POISSON
-    blend_alpha:       float      = 1.0
-    mask_feather:      int        = 20
-    swap_all_faces:    bool       = True
-    max_faces:         int        = 10
-    skip_frames:       int        = 0
-    enhance:           bool       = False
-    preserve_audio:    bool       = True
-    output_fps:        Optional[float]  = None
-    output_format:     str        = "mp4"
-    output_codec:      str        = "mp4v"
-    max_resolution:    Optional[tuple]  = None   # (w, h)
-    watermark:         bool       = True
-    watermark_text:    str        = "AI GENERATED"
-    enable_tracking:   bool       = True
-    tracking_iou:      float      = 0.3
-    tracking_max_age:  int        = 5
-    save_intermediate: bool       = False
-    progress_callback: Optional[Callable[[int, int], None]] = field(
-        default=None, repr=False
-    )
+    blend_mode: BlendMode = BlendMode.POISSON
+    blend_alpha: float = 1.0
+    mask_feather: int = 20
+    swap_all_faces: bool = True
+    max_faces: int = 10
+    skip_frames: int = 0
+    enhance: bool = False
+    preserve_audio: bool = True
+    output_fps: Optional[float] = None
+    output_format: str = "mp4"
+    output_codec: str = "mp4v"
+    max_resolution: Optional[tuple] = None  # (w, h)
+    watermark: bool = True
+    watermark_text: str = "AI GENERATED"
+    enable_tracking: bool = True
+    tracking_iou: float = 0.3
+    tracking_max_age: int = 5
+    save_intermediate: bool = False
+    progress_callback: Optional[Callable[[int, int], None]] = field(default=None, repr=False)
 
 
 @dataclass
@@ -113,15 +111,15 @@ class VideoProcessingResult:
         source_resolution: (width, height) of the source video.
     """
 
-    output_path:        str
-    total_frames:       int   = 0
-    processed_frames:   int   = 0
-    skipped_frames:     int   = 0
-    failed_frames:      int   = 0
-    total_time_s:       float = 0.0
-    avg_fps:            float = 0.0
-    source_fps:         float = 0.0
-    source_resolution:  tuple = field(default_factory=lambda: (0, 0))
+    output_path: str
+    total_frames: int = 0
+    processed_frames: int = 0
+    skipped_frames: int = 0
+    failed_frames: int = 0
+    total_time_s: float = 0.0
+    avg_fps: float = 0.0
+    source_fps: float = 0.0
+    source_resolution: tuple = field(default_factory=lambda: (0, 0))
 
     @property
     def success(self) -> bool:
@@ -177,13 +175,13 @@ class VideoPipeline:
 
     def __init__(
         self,
-        detector:  BaseDetector,
-        swapper:   BaseSwapper,
-        enhancer:  Optional[BaseEnhancer] = None,
+        detector: BaseDetector,
+        swapper: BaseSwapper,
+        enhancer: Optional[BaseEnhancer] = None,
     ) -> None:
-        self.detector  = detector
-        self.swapper   = swapper
-        self.enhancer  = enhancer
+        self.detector = detector
+        self.swapper = swapper
+        self.enhancer = enhancer
 
     # ------------------------------------------------------------------
     # Public API
@@ -192,8 +190,8 @@ class VideoPipeline:
     def process(
         self,
         source_video: str,
-        output_path:  str,
-        config:       VideoProcessingConfig,
+        output_path: str,
+        config: VideoProcessingConfig,
     ) -> VideoProcessingResult:
         """
         Process *source_video* end-to-end and write the result to
@@ -224,14 +222,14 @@ class VideoPipeline:
         if not cap.isOpened():
             raise RuntimeError(f"Cannot open video: {source_video}")
 
-        source_fps    = cap.get(cv2.CAP_PROP_FPS) or 30.0
-        total_frames  = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        src_w         = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        src_h         = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        source_res    = (src_w, src_h)
+        source_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        src_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        src_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        source_res = (src_w, src_h)
 
-        output_fps    = config.output_fps or source_fps
-        out_w, out_h  = self._capped_resolution(src_w, src_h, config.max_resolution)
+        output_fps = config.output_fps or source_fps
+        out_w, out_h = self._capped_resolution(src_w, src_h, config.max_resolution)
 
         logger.info(
             f"VideoPipeline: {source_video!r} → {output_path!r} | "
@@ -264,11 +262,11 @@ class VideoPipeline:
                 max_age=config.tracking_max_age,
             )
 
-        t_start          = time.perf_counter()
+        t_start = time.perf_counter()
         processed_frames = 0
-        skipped_frames   = 0
-        failed_frames    = 0
-        frame_idx        = 0
+        skipped_frames = 0
+        failed_frames = 0
+        frame_idx = 0
 
         with tqdm(
             total=total_frames,
@@ -289,7 +287,7 @@ class VideoPipeline:
                 if config.skip_frames > 0 and (frame_idx % (config.skip_frames + 1)) != 0:
                     writer.write(frame)
                     skipped_frames += 1
-                    frame_idx      += 1
+                    frame_idx += 1
                     pbar.update(1)
                     continue
 
@@ -297,17 +295,13 @@ class VideoPipeline:
                     output_frame = self._process_frame(frame, config, tracker)
                     processed_frames += 1
                 except Exception as exc:
-                    logger.warning(
-                        f"Frame {frame_idx} failed: {exc} — writing original."
-                    )
+                    logger.warning(f"Frame {frame_idx} failed: {exc} — writing original.")
                     output_frame = frame
                     failed_frames += 1
 
                 # Watermark
                 if config.watermark:
-                    output_frame = self._add_watermark(
-                        output_frame, config.watermark_text
-                    )
+                    output_frame = self._add_watermark(output_frame, config.watermark_text)
 
                 writer.write(output_frame)
                 frame_idx += 1
@@ -329,7 +323,7 @@ class VideoPipeline:
         writer.release()
 
         total_time = time.perf_counter() - t_start
-        avg_fps    = processed_frames / total_time if total_time > 0 else 0.0
+        avg_fps = processed_frames / total_time if total_time > 0 else 0.0
 
         logger.info(
             f"Video processing done | "
@@ -348,9 +342,11 @@ class VideoPipeline:
             if not merged:
                 # Audio merge failed — just rename the silent video
                 import shutil
+
                 shutil.move(temp_video_path, final_output)
         else:
             import shutil
+
             shutil.move(temp_video_path, final_output)
 
         # Clean up temp file if still present
@@ -375,11 +371,11 @@ class VideoPipeline:
 
     def process_webcam(
         self,
-        config:       VideoProcessingConfig,
-        output_path:  Optional[str] = None,
+        config: VideoProcessingConfig,
+        output_path: Optional[str] = None,
         camera_index: int = 0,
-        max_frames:   Optional[int] = None,
-        display:      bool = True,
+        max_frames: Optional[int] = None,
+        display: bool = True,
     ) -> VideoProcessingResult:
         """
         Process live webcam frames until the user presses 'q'.
@@ -399,8 +395,8 @@ class VideoPipeline:
             raise RuntimeError(f"Cannot open webcam index {camera_index}.")
 
         src_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-        src_w   = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        src_h   = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        src_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        src_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         out_w, out_h = self._capped_resolution(src_w, src_h, config.max_resolution)
 
         writer: Optional[cv2.VideoWriter] = None
@@ -408,9 +404,7 @@ class VideoPipeline:
             out_path = Path(output_path)
             out_path.parent.mkdir(parents=True, exist_ok=True)
             fourcc = cv2.VideoWriter_fourcc(*config.output_codec)
-            writer = cv2.VideoWriter(
-                str(out_path), fourcc, src_fps, (out_w, out_h)
-            )
+            writer = cv2.VideoWriter(str(out_path), fourcc, src_fps, (out_w, out_h))
 
         tracker: Optional[IoUTracker] = None
         if config.enable_tracking:
@@ -419,14 +413,13 @@ class VideoPipeline:
                 max_age=config.tracking_max_age,
             )
 
-        t_start          = time.perf_counter()
+        t_start = time.perf_counter()
         processed_frames = 0
-        failed_frames    = 0
-        frame_idx        = 0
+        failed_frames = 0
+        frame_idx = 0
 
         logger.info(
-            f"Webcam pipeline started | camera={camera_index} | "
-            f"resolution={src_w}x{src_h}"
+            f"Webcam pipeline started | camera={camera_index} | " f"resolution={src_w}x{src_h}"
         )
 
         try:
@@ -447,9 +440,7 @@ class VideoPipeline:
                     failed_frames += 1
 
                 if config.watermark:
-                    output_frame = self._add_watermark(
-                        output_frame, config.watermark_text
-                    )
+                    output_frame = self._add_watermark(output_frame, config.watermark_text)
 
                 if writer:
                     writer.write(output_frame)
@@ -471,7 +462,7 @@ class VideoPipeline:
                 cv2.destroyAllWindows()
 
         total_time = time.perf_counter() - t_start
-        avg_fps    = processed_frames / total_time if total_time > 0 else 0.0
+        avg_fps = processed_frames / total_time if total_time > 0 else 0.0
 
         logger.info(
             f"Webcam pipeline ended | frames={processed_frames} "
@@ -495,8 +486,8 @@ class VideoPipeline:
 
     def _process_frame(
         self,
-        frame:   np.ndarray,
-        config:  VideoProcessingConfig,
+        frame: np.ndarray,
+        config: VideoProcessingConfig,
         tracker: Optional[IoUTracker] = None,
     ) -> np.ndarray:
         """
@@ -515,7 +506,7 @@ class VideoPipeline:
         if detection.is_empty:
             if tracker is not None:
                 tracker.update([])  # age existing tracks
-            return frame   # no faces → return unmodified
+            return frame  # no faces → return unmodified
 
         # Assign persistent track IDs across frames
         if tracker is not None:
@@ -569,7 +560,8 @@ class VideoPipeline:
                 h1, w1 = enh_result.output_image.shape[:2]
                 if (h1, w1) != (h0, w0):
                     output_frame = cv2.resize(
-                        enh_result.output_image, (w0, h0),
+                        enh_result.output_image,
+                        (w0, h0),
                         interpolation=cv2.INTER_AREA,
                     )
                 else:
@@ -612,7 +604,7 @@ class VideoPipeline:
     @staticmethod
     def _add_watermark(
         frame: np.ndarray,
-        text:  str,
+        text: str,
     ) -> np.ndarray:
         """
         Overlay a semi-transparent text watermark on *frame*.
@@ -628,11 +620,11 @@ class VideoPipeline:
             Frame with watermark applied (same shape).
         """
         frame = frame.copy()
-        h, w  = frame.shape[:2]
+        h, w = frame.shape[:2]
 
-        font       = cv2.FONT_HERSHEY_SIMPLEX
+        font = cv2.FONT_HERSHEY_SIMPLEX
         font_scale = max(0.4, w / 1280 * 0.6)
-        thickness  = max(1, int(w / 640))
+        thickness = max(1, int(w / 640))
 
         (tw, th), baseline = cv2.getTextSize(text, font, font_scale, thickness)
         margin = int(h * 0.02)
@@ -652,7 +644,8 @@ class VideoPipeline:
 
         # Draw text
         cv2.putText(
-            frame, text,
+            frame,
+            text,
             (x, y),
             font,
             font_scale,
@@ -664,9 +657,9 @@ class VideoPipeline:
 
     @staticmethod
     def _merge_audio(
-        video_path:   str,
+        video_path: str,
         audio_source: str,
-        output_path:  str,
+        output_path: str,
     ) -> bool:
         """
         Merge the audio track from *audio_source* into *video_path*
@@ -684,14 +677,20 @@ class VideoPipeline:
 
         cmd = [
             "ffmpeg",
-            "-y",                    # overwrite output
-            "-i",  video_path,       # processed (silent) video
-            "-i",  audio_source,     # original (audio donor)
-            "-map", "0:v:0",         # take video from first input
-            "-map", "1:a?",          # take audio from second (optional)
-            "-c:v", "copy",          # no re-encode video
-            "-c:a", "aac",           # re-encode audio to AAC
-            "-shortest",             # match shorter stream length
+            "-y",  # overwrite output
+            "-i",
+            video_path,  # processed (silent) video
+            "-i",
+            audio_source,  # original (audio donor)
+            "-map",
+            "0:v:0",  # take video from first input
+            "-map",
+            "1:a?",  # take audio from second (optional)
+            "-c:v",
+            "copy",  # no re-encode video
+            "-c:a",
+            "aac",  # re-encode audio to AAC
+            "-shortest",  # match shorter stream length
             output_path,
         ]
 
@@ -700,7 +699,7 @@ class VideoPipeline:
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                timeout=600,         # 10-minute hard timeout
+                timeout=600,  # 10-minute hard timeout
             )
             if result.returncode == 0:
                 logger.info(f"Audio merged → {output_path}")

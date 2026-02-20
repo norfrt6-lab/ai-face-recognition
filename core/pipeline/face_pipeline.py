@@ -72,12 +72,13 @@ class PipelineStatus(Enum):
     CONSENT_DENIED  — Ethics gate rejected the request.
     STAGE_ERROR     — A critical stage raised an unrecoverable error.
     """
-    SUCCESS        = "success"
-    PARTIAL        = "partial"
+
+    SUCCESS = "success"
+    PARTIAL = "partial"
     NO_SOURCE_FACE = "no_source_face"
     NO_TARGET_FACE = "no_target_face"
     CONSENT_DENIED = "consent_denied"
-    STAGE_ERROR    = "stage_error"
+    STAGE_ERROR = "stage_error"
 
 
 @dataclass
@@ -107,22 +108,22 @@ class PipelineConfig:
     """
 
     # Swap stage
-    blend_mode:        BlendMode = BlendMode.POISSON
-    blend_alpha:       float     = 1.0
-    mask_feather:      int       = 20
-    swap_all_faces:    bool      = False
-    max_faces:         int       = 10
-    source_face_index: int       = 0
-    target_face_index: int       = 0
+    blend_mode: BlendMode = BlendMode.POISSON
+    blend_alpha: float = 1.0
+    mask_feather: int = 20
+    swap_all_faces: bool = False
+    max_faces: int = 10
+    source_face_index: int = 0
+    target_face_index: int = 0
 
     # Enhancement stage
-    enable_enhancement: bool  = False
-    fidelity_weight:    float = 0.5
-    upscale:            int   = 2
+    enable_enhancement: bool = False
+    fidelity_weight: float = 0.5
+    upscale: int = 2
 
     # Ethics / output
-    watermark:      bool = True
-    watermark_text: str  = "AI GENERATED"
+    watermark: bool = True
+    watermark_text: str = "AI GENERATED"
     require_consent: bool = True
 
     # Debug
@@ -146,13 +147,13 @@ class PipelineTiming:
     All values are 0.0 if the corresponding stage was not executed.
     """
 
-    detect_source_ms:  float = 0.0
-    embed_source_ms:   float = 0.0
-    detect_target_ms:  float = 0.0
-    swap_ms:           float = 0.0
-    enhance_ms:        float = 0.0
-    watermark_ms:      float = 0.0
-    total_ms:          float = 0.0
+    detect_source_ms: float = 0.0
+    embed_source_ms: float = 0.0
+    detect_target_ms: float = 0.0
+    swap_ms: float = 0.0
+    enhance_ms: float = 0.0
+    watermark_ms: float = 0.0
+    total_ms: float = 0.0
 
     @property
     def pipeline_overhead_ms(self) -> float:
@@ -199,18 +200,18 @@ class PipelineResult:
         warnings:           Non-fatal warning messages accumulated during the run.
     """
 
-    output_image:       np.ndarray
-    status:             PipelineStatus
-    request_id:         str
-    source_detection:   Optional[DetectionResult]           = None
-    target_detection:   Optional[DetectionResult]           = None
-    source_embedding:   Optional[FaceEmbedding]             = None
-    swap_result:        Optional[BatchSwapResult]           = None
-    enhancement_result: Optional[EnhancementResult]         = None
-    timing:             PipelineTiming                      = field(default_factory=PipelineTiming)
-    config:             Optional[PipelineConfig]            = None
-    error:              Optional[str]                       = None
-    warnings:           List[str]                           = field(default_factory=list)
+    output_image: np.ndarray
+    status: PipelineStatus
+    request_id: str
+    source_detection: Optional[DetectionResult] = None
+    target_detection: Optional[DetectionResult] = None
+    source_embedding: Optional[FaceEmbedding] = None
+    swap_result: Optional[BatchSwapResult] = None
+    enhancement_result: Optional[EnhancementResult] = None
+    timing: PipelineTiming = field(default_factory=PipelineTiming)
+    config: Optional[PipelineConfig] = None
+    error: Optional[str] = None
+    warnings: List[str] = field(default_factory=list)
 
     @property
     def success(self) -> bool:
@@ -282,17 +283,17 @@ class FacePipeline:
 
     def __init__(
         self,
-        detector:   BaseDetector,
+        detector: BaseDetector,
         recognizer: BaseRecognizer,
-        swapper:    BaseSwapper,
-        enhancer:   Optional[BaseEnhancer] = None,
-        config:     Optional[PipelineConfig] = None,
+        swapper: BaseSwapper,
+        enhancer: Optional[BaseEnhancer] = None,
+        config: Optional[PipelineConfig] = None,
     ) -> None:
-        self.detector   = detector
+        self.detector = detector
         self.recognizer = recognizer
-        self.swapper    = swapper
-        self.enhancer   = enhancer
-        self.config     = config or PipelineConfig()
+        self.swapper = swapper
+        self.enhancer = enhancer
+        self.config = config or PipelineConfig()
 
     # ------------------------------------------------------------------
     # Public API
@@ -320,11 +321,11 @@ class FacePipeline:
         Returns:
             ``PipelineResult`` — always non-None; check ``.success``.
         """
-        cfg         = config or self.config
-        request_id  = str(uuid.uuid4())
-        t_total     = _timer()
-        timing      = PipelineTiming()
-        warnings:   List[str] = []
+        cfg = config or self.config
+        request_id = str(uuid.uuid4())
+        t_total = _timer()
+        timing = PipelineTiming()
+        warnings: List[str] = []
 
         logger.info(
             f"Pipeline run | id={request_id[:8]} | "
@@ -340,10 +341,7 @@ class FacePipeline:
                 request_id=request_id,
                 timing=timing,
                 config=cfg,
-                error=(
-                    "Consent was not provided. "
-                    "Set consent=True to process this request."
-                ),
+                error=("Consent was not provided. " "Set consent=True to process this request."),
             )
 
         t0 = _timer()
@@ -352,7 +350,10 @@ class FacePipeline:
         except Exception as exc:
             timing.total_ms = _timer() - t_total
             return self._stage_error(
-                target_image, request_id, timing, cfg,
+                target_image,
+                request_id,
+                timing,
+                cfg,
                 f"Source face detection failed: {exc}",
             )
         timing.detect_source_ms = _timer() - t0
@@ -371,20 +372,27 @@ class FacePipeline:
 
         # Pick the source face
         src_face_idx = min(cfg.source_face_index, len(source_detection.faces) - 1)
-        source_face  = source_detection.faces[src_face_idx]
+        source_face = source_detection.faces[src_face_idx]
 
         t0 = _timer()
         try:
             source_embedding = self.recognizer.get_embedding(
                 source_image,
-                bbox=(int(source_face.x1), int(source_face.y1),
-                      int(source_face.x2), int(source_face.y2)),
+                bbox=(
+                    int(source_face.x1),
+                    int(source_face.y1),
+                    int(source_face.x2),
+                    int(source_face.y2),
+                ),
             )
         except Exception as exc:
             timing.embed_source_ms = _timer() - t0
-            timing.total_ms        = _timer() - t_total
+            timing.total_ms = _timer() - t_total
             return self._stage_error(
-                target_image, request_id, timing, cfg,
+                target_image,
+                request_id,
+                timing,
+                cfg,
                 f"Source embedding extraction failed: {exc}",
                 source_detection=source_detection,
             )
@@ -407,9 +415,12 @@ class FacePipeline:
             target_detection = self.detector.detect(target_image)
         except Exception as exc:
             timing.detect_target_ms = _timer() - t0
-            timing.total_ms         = _timer() - t_total
+            timing.total_ms = _timer() - t_total
             return self._stage_error(
-                target_image, request_id, timing, cfg,
+                target_image,
+                request_id,
+                timing,
+                cfg,
                 f"Target face detection failed: {exc}",
                 source_detection=source_detection,
                 source_embedding=source_embedding,
@@ -447,7 +458,7 @@ class FacePipeline:
             else:
                 # Swap single target face
                 tgt_face_idx = min(cfg.target_face_index, len(target_detection.faces) - 1)
-                tgt_face     = target_detection.faces[tgt_face_idx]
+                tgt_face = target_detection.faces[tgt_face_idx]
 
                 single_req = SwapRequest(
                     source_embedding=source_embedding,
@@ -470,10 +481,13 @@ class FacePipeline:
                 )
 
         except Exception as exc:
-            timing.swap_ms  = _timer() - t0
+            timing.swap_ms = _timer() - t0
             timing.total_ms = _timer() - t_total
             return self._stage_error(
-                target_image, request_id, timing, cfg,
+                target_image,
+                request_id,
+                timing,
+                cfg,
                 f"Face swap stage failed: {exc}",
                 source_detection=source_detection,
                 target_detection=target_detection,
@@ -520,9 +534,7 @@ class FacePipeline:
                 timing.enhance_ms = _timer() - t0
 
         elif cfg.enable_enhancement and self.enhancer is None:
-            warnings.append(
-                "enable_enhancement=True but no enhancer was provided to the pipeline."
-            )
+            warnings.append("enable_enhancement=True but no enhancer was provided to the pipeline.")
 
         t0 = _timer()
         if cfg.watermark:
@@ -567,15 +579,15 @@ class FacePipeline:
 
     def _stage_error(
         self,
-        target_image:    np.ndarray,
-        request_id:      str,
-        timing:          PipelineTiming,
-        cfg:             PipelineConfig,
-        error:           str,
+        target_image: np.ndarray,
+        request_id: str,
+        timing: PipelineTiming,
+        cfg: PipelineConfig,
+        error: str,
         *,
         source_detection: Optional[DetectionResult] = None,
         target_detection: Optional[DetectionResult] = None,
-        source_embedding: Optional[FaceEmbedding]   = None,
+        source_embedding: Optional[FaceEmbedding] = None,
     ) -> PipelineResult:
         """Return a STAGE_ERROR result with timing already finalised."""
         logger.error(f"Pipeline [{request_id[:8]}] stage error: {error}")
@@ -605,5 +617,3 @@ class FacePipeline:
 def _timer() -> float:
     """Return current time in milliseconds (monotonic clock)."""
     return time.perf_counter() * 1000.0
-
-

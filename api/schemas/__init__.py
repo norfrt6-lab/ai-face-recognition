@@ -1,32 +1,31 @@
 from api.schemas.requests import (
     BaseAPIRequest,
     BlendModeSchema,
+    DeleteIdentityRequest,
     EnhancerBackendSchema,
+    ListIdentitiesRequest,
     RecognizeRequest,
     RegisterRequest,
-    SwapRequest,
-    DeleteIdentityRequest,
     RenameIdentityRequest,
-    ListIdentitiesRequest,
+    SwapRequest,
 )
-
 from api.schemas.responses import (
     BoundingBox,
-    LandmarkPoint,
-    FaceAttributeResponse,
-    DetectedFace,
-    ComponentStatus,
     ComponentHealth,
-    HealthResponse,
+    ComponentStatus,
+    DetectedFace,
+    ErrorDetail,
+    ErrorResponse,
+    FaceAttributeResponse,
     FaceMatchResponse,
+    HealthResponse,
+    LandmarkPoint,
     RecognizedFace,
     RecognizeResponse,
     RegisterResponse,
-    SwapTimingBreakdown,
     SwappedFaceInfo,
     SwapResponse,
-    ErrorDetail,
-    ErrorResponse,
+    SwapTimingBreakdown,
 )
 
 __all__ = [
