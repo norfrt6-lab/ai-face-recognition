@@ -715,6 +715,12 @@ class InsightFaceRecognizer(BaseRecognizer):
         x1, y1, x2, y2 = bbox
         bw, bh = x2 - x1, y2 - y1
 
+        if bw <= 0 or bh <= 0:
+            logger.warning(
+                f"_crop_padded: degenerate bbox ({x1},{y1},{x2},{y2}), returning full image."
+            )
+            return image.copy()
+
         px = int(bw * pad_frac)
         py = int(bh * pad_frac)
 
@@ -722,6 +728,9 @@ class InsightFaceRecognizer(BaseRecognizer):
         cy1 = max(0, y1 - py)
         cx2 = min(w, x2 + px)
         cy2 = min(h, y2 + py)
+
+        if cx2 <= cx1 or cy2 <= cy1:
+            return image.copy()
 
         return image[cy1:cy2, cx1:cx2].copy()
 
@@ -757,7 +766,7 @@ class InsightFaceRecognizer(BaseRecognizer):
         except ImportError:
             return -1
 
-        return max(self.ctx_id, 0)
+        return self.ctx_id if self.ctx_id >= 0 else 0
 
     def _resolve_providers(self) -> List[str]:
         """

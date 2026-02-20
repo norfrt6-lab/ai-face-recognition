@@ -351,7 +351,7 @@ class VideoPipeline:
 
         # Clean up temp file if still present
         temp_path_obj = Path(temp_video_path)
-        if temp_path_obj.exists() and temp_path_obj != out_path:
+        if temp_path_obj.exists() and temp_path_obj.resolve() != out_path.resolve():
             try:
                 temp_path_obj.unlink()
             except OSError:
@@ -429,7 +429,7 @@ class VideoPipeline:
                     break
 
                 if (src_w, src_h) != (out_w, out_h):
-                    frame = cv2.resize(frame, (out_w, out_h))
+                    frame = cv2.resize(frame, (out_w, out_h), interpolation=cv2.INTER_AREA)
 
                 try:
                     output_frame = self._process_frame(frame, config, tracker)

@@ -269,6 +269,12 @@ def _post_buffalo_l_extract(spec: ModelSpec) -> bool:
             members = zf.namelist()
             logger.debug(f"  ZIP members ({len(members)}): {members[:5]} ...")
 
+            # Validate members for path traversal attacks
+            for member in members:
+                member_path = Path(member)
+                if member_path.is_absolute() or ".." in member_path.parts:
+                    raise zipfile.BadZipFile(f"Unsafe path in ZIP: {member!r} (path traversal)")
+
             # Check if zip has a root folder
             has_root = all(m.startswith("buffalo_l/") for m in members if m.strip())
 

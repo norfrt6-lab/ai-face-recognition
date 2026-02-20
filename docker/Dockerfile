@@ -24,8 +24,8 @@
 ARG USE_GPU=true
 
 # ── Base image selection ─────────────────────────────────────
-FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS base-gpu
-FROM python:3.10-slim-bookworm AS base-cpu
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS base-true
+FROM python:3.10-slim-bookworm AS base-false
 
 # Select the correct base depending on USE_GPU arg
 # shellcheck disable=SC2140

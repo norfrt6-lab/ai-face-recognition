@@ -561,7 +561,7 @@ class InSwapper(BaseSwapper):
                 original=original,
                 swapped_crop=swapped_crop,
                 affine_matrix=affine_M,
-                mask=_make_crop_mask(self.input_size, feather=0),
+                mask=_make_crop_mask(self.input_size, feather=feather),
             )
         elif blend_mode in (BlendMode.ALPHA, BlendMode.MASKED_ALPHA):
             mask = _make_crop_mask(self.input_size, feather=feather)

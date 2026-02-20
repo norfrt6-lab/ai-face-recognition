@@ -274,7 +274,7 @@ async def swap_faces(
         )
 
     # Pick source face by index (clamp to valid range)
-    src_idx = min(source_face_index, len(source_detection.faces) - 1)
+    src_idx = max(0, min(source_face_index, len(source_detection.faces) - 1))
     src_face = source_detection.faces[src_idx]
 
     try:
@@ -364,7 +364,7 @@ async def swap_faces(
         else:
             from core.swapper.base_swapper import SwapRequest as CoreSwapRequest  # noqa: PLC0415
 
-            tgt_idx = min(target_face_index, len(target_detection.faces) - 1)
+            tgt_idx = max(0, min(target_face_index, len(target_detection.faces) - 1))
             tgt_face = target_detection.faces[tgt_idx]
 
             swap_req = CoreSwapRequest(
