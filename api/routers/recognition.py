@@ -532,14 +532,10 @@ async def register(
 
     try:
         if identity_id and not overwrite:
-            # Append embedding to existing identity (looked up by name)
-            existing = face_db.get_identity(name)
-            if existing is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Identity '{name}' not found in database.",
-                )
-            result = face_db.register(name=name, embedding=embedding)
+            # Append embedding to existing identity — atomic check inside register()
+            result = face_db.register(
+                name=name, embedding=embedding, append_only=True,
+            )
             result_id = result.identity_id
             total_emb = result.num_embeddings
             added = 1
@@ -562,6 +558,11 @@ async def register(
             msg = f"New identity '{name}' registered successfully."
     except HTTPException:
         raise
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
     except Exception as exc:
         logger.error(f"[{request_id[:8]}] DB register error: {exc}")
         raise HTTPException(
