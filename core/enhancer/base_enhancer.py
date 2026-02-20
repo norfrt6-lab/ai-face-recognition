@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# core/enhancer/base_enhancer.py
-# ============================================================
 # Defines the abstract contract that ALL face enhancement engines
 # must implement, plus shared data-types used throughout the pipeline.
 #
@@ -16,10 +12,10 @@
 #   EnhancementResult  — the output of enhancement (frame + metadata)
 #   EnhancerBackend    — enum of supported backends
 #   EnhancementStatus  — success / failure enum
-# ============================================================
 
 from __future__ import annotations
 
+import threading
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -31,10 +27,6 @@ import numpy as np
 
 from core.detector.base_detector import FaceBox
 
-
-# ============================================================
-# Enumerations
-# ============================================================
 
 class EnhancerBackend(Enum):
     """
@@ -67,10 +59,6 @@ class EnhancementStatus(Enum):
     INVALID_INPUT    = "invalid_input"
     DISABLED         = "disabled"
 
-
-# ============================================================
-# Data Types
-# ============================================================
 
 @dataclass
 class EnhancementRequest:
@@ -205,10 +193,6 @@ class EnhancementResult:
         )
 
 
-# ============================================================
-# Shared Utilities
-# ============================================================
-
 def pad_image_for_enhancement(
     image: np.ndarray,
     min_size: int = 128,
@@ -297,10 +281,6 @@ def find_center_face(face_boxes: List[FaceBox], image_w: int, image_h: int) -> O
     return min(face_boxes, key=_dist)
 
 
-# ============================================================
-# Abstract Base Enhancer
-# ============================================================
-
 class BaseEnhancer(ABC):
     """
     Abstract base class for all face enhancement engines.
@@ -353,7 +333,8 @@ class BaseEnhancer(ABC):
         self._model      = None
         self._is_loaded: bool = False
 
-        # Cumulative statistics
+        # Cumulative statistics (guarded by _stats_lock for thread safety)
+        self._stats_lock               = threading.Lock()
         self._total_calls:     int   = 0
         self._total_inference: float = 0.0
 
@@ -434,8 +415,9 @@ class BaseEnhancer(ABC):
 
     def reset_stats(self) -> None:
         """Reset cumulative inference statistics."""
-        self._total_calls     = 0
-        self._total_inference = 0.0
+        with self._stats_lock:
+            self._total_calls     = 0
+            self._total_inference = 0.0
 
     # ------------------------------------------------------------------
     # Properties
@@ -455,14 +437,16 @@ class BaseEnhancer(ABC):
     @property
     def avg_inference_ms(self) -> float:
         """Average model inference time per call in milliseconds."""
-        if self._total_calls == 0:
-            return 0.0
-        return self._total_inference / self._total_calls
+        with self._stats_lock:
+            if self._total_calls == 0:
+                return 0.0
+            return self._total_inference / self._total_calls
 
     @property
     def total_calls(self) -> int:
         """Total number of ``enhance()`` calls since the model was loaded."""
-        return self._total_calls
+        with self._stats_lock:
+            return self._total_calls
 
     # ------------------------------------------------------------------
     # Context manager support

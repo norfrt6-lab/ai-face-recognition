@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# core/pipeline/face_pipeline.py
-# ============================================================
 # Image-mode pipeline that orchestrates the full end-to-end
 # face swap workflow in a single call:
 #
@@ -30,7 +26,6 @@
 #   - Fault-tolerant (each stage returns partial results on failure)
 #   - Observable (timing breakdown per stage)
 #   - Ethics-aware (consent gate + watermark)
-# ============================================================
 
 from __future__ import annotations
 
@@ -59,14 +54,11 @@ from core.swapper.base_swapper import (
     SwapRequest,
     SwapResult,
 )
+from utils.image_utils import add_watermark
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-
-# ============================================================
-# Enumerations
-# ============================================================
 
 class PipelineStatus(Enum):
     """
@@ -87,10 +79,6 @@ class PipelineStatus(Enum):
     CONSENT_DENIED = "consent_denied"
     STAGE_ERROR    = "stage_error"
 
-
-# ============================================================
-# Configuration
-# ============================================================
 
 @dataclass
 class PipelineConfig:
@@ -150,10 +138,6 @@ class PipelineConfig:
         )
 
 
-# ============================================================
-# Stage timing
-# ============================================================
-
 @dataclass
 class PipelineTiming:
     """
@@ -193,10 +177,6 @@ class PipelineTiming:
             f"total={self.total_ms:.1f}ms)"
         )
 
-
-# ============================================================
-# Result
-# ============================================================
 
 @dataclass
 class PipelineResult:
@@ -253,10 +233,6 @@ class PipelineResult:
             f"id={self.request_id[:8]}...)"
         )
 
-
-# ============================================================
-# FacePipeline
-# ============================================================
 
 class FacePipeline:
     """
@@ -355,7 +331,6 @@ class FacePipeline:
             f"source={source_image.shape} target={target_image.shape}"
         )
 
-        # ── Ethics gate ──────────────────────────────────────────────
         if cfg.require_consent and not consent:
             logger.warning(f"Pipeline [{request_id[:8]}] rejected — consent=False")
             timing.total_ms = _timer() - t_total
@@ -371,7 +346,6 @@ class FacePipeline:
                 ),
             )
 
-        # ── Stage 1: Detect faces in source image ────────────────────
         t0 = _timer()
         try:
             source_detection = self.detector.detect(source_image)
@@ -399,12 +373,12 @@ class FacePipeline:
         src_face_idx = min(cfg.source_face_index, len(source_detection.faces) - 1)
         source_face  = source_detection.faces[src_face_idx]
 
-        # ── Stage 2: Extract source embedding ───────────────────────
         t0 = _timer()
         try:
             source_embedding = self.recognizer.get_embedding(
                 source_image,
-                face_box=source_face,
+                bbox=(int(source_face.x1), int(source_face.y1),
+                      int(source_face.x2), int(source_face.y2)),
             )
         except Exception as exc:
             timing.embed_source_ms = _timer() - t0
@@ -428,7 +402,6 @@ class FacePipeline:
                 error="Failed to extract embedding from the source face.",
             )
 
-        # ── Stage 3: Detect faces in target image ───────────────────
         t0 = _timer()
         try:
             target_detection = self.detector.detect(target_image)
@@ -457,7 +430,6 @@ class FacePipeline:
                 error="No face detected in the target image.",
             )
 
-        # ── Stage 4: Face swap ───────────────────────────────────────
         t0 = _timer()
         metadata = {"save_intermediate": cfg.save_intermediate}
         try:
@@ -518,7 +490,6 @@ class FacePipeline:
                     f"{sr.status.value} — {sr.error}"
                 )
 
-        # ── Stage 5: Face enhancement (optional) ────────────────────
         enhancement_result: Optional[EnhancementResult] = None
 
         if cfg.enable_enhancement and self.enhancer is not None:
@@ -552,16 +523,14 @@ class FacePipeline:
                 "enable_enhancement=True but no enhancer was provided to the pipeline."
             )
 
-        # ── Stage 6: Watermark ───────────────────────────────────────
         t0 = _timer()
         if cfg.watermark:
             try:
-                swapped_image = _apply_watermark(swapped_image, cfg.watermark_text)
+                swapped_image = add_watermark(swapped_image, text=cfg.watermark_text)
             except Exception as exc:
                 warnings.append(f"Watermark failed: {exc}")
         timing.watermark_ms = _timer() - t0
 
-        # ── Finalise ─────────────────────────────────────────────────
         timing.total_ms = _timer() - t_total
 
         all_swaps_ok = swap_result.all_success
@@ -632,49 +601,8 @@ class FacePipeline:
         return f"FacePipeline({', '.join(components)})"
 
 
-# ============================================================
-# Module-level helpers
-# ============================================================
-
 def _timer() -> float:
     """Return current time in milliseconds (monotonic clock)."""
     return time.perf_counter() * 1000.0
 
 
-def _apply_watermark(
-    image: np.ndarray,
-    text:  str = "AI GENERATED",
-) -> np.ndarray:
-    """
-    Overlay a semi-transparent text watermark on *image*.
-
-    Places the watermark in the bottom-right corner with a slight
-    background shadow for legibility on any background colour.
-
-    Args:
-        image: BGR uint8 numpy array to watermark.
-        text:  The text string to overlay.
-
-    Returns:
-        A copy of *image* with the watermark applied.
-    """
-    out    = image.copy()
-    h, w   = out.shape[:2]
-    font   = cv2.FONT_HERSHEY_SIMPLEX
-    scale  = max(0.4, min(w, h) / 800.0)
-    thick  = max(1, int(scale * 1.5))
-
-    (tw, th), baseline = cv2.getTextSize(text, font, scale, thick)
-    margin = int(min(w, h) * 0.02)
-
-    x = w - tw - margin
-    y = h - margin
-
-    # Shadow
-    cv2.putText(out, text, (x + 1, y + 1), font, scale, (0, 0, 0), thick + 1, cv2.LINE_AA)
-    # Text (white with 70 % opacity via a blend)
-    overlay = out.copy()
-    cv2.putText(overlay, text, (x, y), font, scale, (255, 255, 255), thick, cv2.LINE_AA)
-    cv2.addWeighted(overlay, 0.7, out, 0.3, 0, out)
-
-    return out

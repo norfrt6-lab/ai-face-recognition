@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# tests/unit/test_recognizer.py
-# ============================================================
 # Unit tests for:
 #   - FaceAttribute dataclass
 #   - FaceEmbedding dataclass
@@ -14,7 +10,6 @@
 #   - FaceDatabase  (register, search, persistence, management)
 #
 # All tests are pure unit tests — no real models or GPU required.
-# ============================================================
 
 from __future__ import annotations
 
@@ -46,10 +41,6 @@ from core.recognizer.face_database import (
     SearchResult,
 )
 
-
-# ============================================================
-# Helpers
-# ============================================================
 
 def _rand_vec(dim: int = 512, seed: int = 0) -> np.ndarray:
     """Return a random unit-normalised float32 vector."""
@@ -83,10 +74,6 @@ def _far_vec(dim: int = 512, seed: int = 99) -> np.ndarray:
     """Return a vector orthogonal / dissimilar to common ones."""
     return _rand_vec(dim, seed)
 
-
-# ============================================================
-# Fixtures
-# ============================================================
 
 @pytest.fixture
 def vec_alice() -> np.ndarray:
@@ -133,10 +120,6 @@ def empty_db() -> FaceDatabase:
     return FaceDatabase(similarity_threshold=0.45)
 
 
-# ============================================================
-# 1. FaceAttribute Tests
-# ============================================================
-
 class TestFaceAttribute:
 
     def test_default_fields_none(self):
@@ -181,10 +164,6 @@ class TestFaceAttribute:
         assert fa.gender_score == pytest.approx(0.88)
         assert fa.embedding_norm == pytest.approx(1.0)
 
-
-# ============================================================
-# 2. FaceEmbedding Tests
-# ============================================================
 
 class TestFaceEmbedding:
 
@@ -279,10 +258,6 @@ class TestFaceEmbedding:
         assert emb.attributes.age == pytest.approx(28.0)
 
 
-# ============================================================
-# 3. FaceMatch Tests
-# ============================================================
-
 class TestFaceMatch:
 
     def test_known_match(self):
@@ -336,10 +311,6 @@ class TestFaceMatch:
         assert "0.8200" in r
         assert "FaceMatch" in r
 
-
-# ============================================================
-# 4. RecognitionResult Tests
-# ============================================================
 
 class TestRecognitionResult:
 
@@ -399,10 +370,6 @@ class TestRecognitionResult:
         assert "RecognitionResult" in r
         assert "num_faces=3" in r
 
-
-# ============================================================
-# 5. Utility Function Tests
-# ============================================================
 
 class TestCosineSimilarity:
 
@@ -511,10 +478,6 @@ class TestAverageEmbeddings:
         with pytest.raises(Exception):
             average_embeddings([a, b])
 
-
-# ============================================================
-# 6. BaseRecognizer Tests
-# ============================================================
 
 class ConcreteRecognizer(BaseRecognizer):
     """Minimal concrete subclass for testing the abstract base."""
@@ -641,10 +604,6 @@ class TestBaseRecognizer:
         assert "not loaded" in r
 
 
-# ============================================================
-# 7. FaceIdentity Tests
-# ============================================================
-
 class TestFaceIdentity:
 
     def test_default_empty_embeddings(self):
@@ -737,10 +696,6 @@ class TestFaceIdentity:
         assert "FaceIdentity" in r
 
 
-# ============================================================
-# 8. FaceDatabase — Registration Tests
-# ============================================================
-
 class TestFaceDatabaseRegister:
 
     def test_register_new_identity(self, empty_db, emb_alice):
@@ -801,10 +756,6 @@ class TestFaceDatabaseRegister:
         identity = db.get_identity("Alice")
         assert identity.num_embeddings == 3
 
-
-# ============================================================
-# 9. FaceDatabase — Search Tests
-# ============================================================
 
 class TestFaceDatabaseSearch:
 
@@ -907,10 +858,6 @@ class TestFaceDatabaseSearch:
         assert match.identity == "Alice"
         assert match.similarity == pytest.approx(1.0, abs=1e-4)
 
-
-# ============================================================
-# 10. FaceDatabase — Management Tests
-# ============================================================
 
 class TestFaceDatabaseManagement:
 
@@ -1027,10 +974,6 @@ class TestFaceDatabaseManagement:
         assert "count=3" in r
 
 
-# ============================================================
-# 11. FaceDatabase — Persistence Tests
-# ============================================================
-
 class TestFaceDatabasePersistence:
 
     def test_save_and_load_roundtrip(self, populated_db, tmp_path):
@@ -1113,10 +1056,6 @@ class TestFaceDatabasePersistence:
         assert saved is False
         assert not path.exists()
 
-
-# ============================================================
-# 12. FaceDatabase — Thread Safety Tests
-# ============================================================
 
 class TestFaceDatabaseThreadSafety:
 

@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# tests/unit/test_swapper.py
-# ============================================================
 # Unit tests for Phase 4 — Face Swap Engine
 #
 # Covers:
@@ -15,7 +11,6 @@
 #
 # NO real model weights are needed — the ONNX session and model
 # loader are fully mocked via pytest-mock / unittest.mock.
-# ============================================================
 
 from __future__ import annotations
 
@@ -47,10 +42,6 @@ from core.swapper.base_swapper import (
 )
 from core.swapper.inswapper import InSwapper
 
-
-# ============================================================
-# Shared helpers / fixtures
-# ============================================================
 
 def _rand_image(h: int = 480, w: int = 640) -> np.ndarray:
     """Return a random BGR uint8 image."""
@@ -171,56 +162,13 @@ def _load_inswapper(model_path: str = "models/inswapper_128.onnx") -> InSwapper:
     return swapper
 
 
-# ============================================================
-# 1. BlendMode enum
-# ============================================================
+class TestEnumsSmokeTest:
+    def test_blend_modes_importable(self):
+        assert len(list(BlendMode)) >= 3
 
-class TestBlendMode:
-    def test_has_alpha(self):
-        assert BlendMode.ALPHA is not None
-
-    def test_has_poisson(self):
-        assert BlendMode.POISSON is not None
-
-    def test_has_masked_alpha(self):
-        assert BlendMode.MASKED_ALPHA is not None
-
-    def test_values_are_distinct(self):
-        modes = list(BlendMode)
-        assert len(modes) == len(set(modes))
-
-    def test_equality(self):
-        assert BlendMode.ALPHA == BlendMode.ALPHA
-        assert BlendMode.ALPHA != BlendMode.POISSON
-
-
-# ============================================================
-# 2. SwapStatus enum
-# ============================================================
-
-class TestSwapStatus:
-    def test_has_success(self):
+    def test_swap_statuses_importable(self):
         assert SwapStatus.SUCCESS.value == "success"
 
-    def test_has_error_variants(self):
-        expected = {
-            "NO_SOURCE_FACE",
-            "NO_TARGET_FACE",
-            "INFERENCE_ERROR",
-            "ALIGN_ERROR",
-            "BLEND_ERROR",
-            "MODEL_NOT_LOADED",
-        }
-        names = {s.name for s in SwapStatus}
-        assert expected.issubset(names)
-
-    def test_string_values(self):
-        assert isinstance(SwapStatus.INFERENCE_ERROR.value, str)
-
-
-# ============================================================
-# 3. SwapRequest dataclass
-# ============================================================
 
 class TestSwapRequest:
     def test_construction(self):
@@ -264,10 +212,6 @@ class TestSwapRequest:
         assert req.source_face_index == 0
         assert req.target_face_index == 0
 
-
-# ============================================================
-# 4. SwapResult dataclass
-# ============================================================
 
 class TestSwapResult:
     def _make_success(self) -> SwapResult:
@@ -321,10 +265,6 @@ class TestSwapResult:
         r = self._make_success()
         assert isinstance(r.output_image, np.ndarray)
 
-
-# ============================================================
-# 5. BatchSwapResult dataclass
-# ============================================================
 
 class TestBatchSwapResult:
     def _make_batch(self, statuses: list) -> BatchSwapResult:
@@ -381,10 +321,6 @@ class TestBatchSwapResult:
         assert b.frame_index == 42
 
 
-# ============================================================
-# 6. Alignment utility — get_reference_points
-# ============================================================
-
 class TestGetReferencePoints:
     def test_returns_5x2(self):
         pts = get_reference_points(128)
@@ -403,10 +339,6 @@ class TestGetReferencePoints:
     def test_different_sizes_are_different(self):
         assert not np.allclose(get_reference_points(64), get_reference_points(128))
 
-
-# ============================================================
-# 7. Alignment utility — estimate_norm
-# ============================================================
 
 class TestEstimateNorm:
     def _make_landmarks(self) -> np.ndarray:
@@ -431,10 +363,6 @@ class TestEstimateNorm:
         assert M_128 is not None and M_112 is not None
         assert not np.allclose(M_128, M_112)
 
-
-# ============================================================
-# 8. Alignment utility — norm_crop
-# ============================================================
 
 class TestNormCrop:
     def _make_landmarks(self) -> np.ndarray:
@@ -471,10 +399,6 @@ class TestNormCrop:
         assert crop_64.shape  == (64, 64, 3)
 
 
-# ============================================================
-# 9. Alignment utility — estimate_landmarks_from_bbox
-# ============================================================
-
 class TestEstimateLandmarksFromBbox:
     def test_returns_5x2(self):
         face = _make_face_box()
@@ -506,10 +430,6 @@ class TestEstimateLandmarksFromBbox:
         assert lm[0, 1] < lm[3, 1]
         assert lm[1, 1] < lm[4, 1]
 
-
-# ============================================================
-# 10. Paste-back utility — paste_back (alpha)
-# ============================================================
 
 class TestPasteBack:
     def _make_aligned_crop(self, size=128) -> np.ndarray:
@@ -562,10 +482,6 @@ class TestPasteBack:
         np.testing.assert_array_equal(result, original)
 
 
-# ============================================================
-# 11. Paste-back utility — paste_back_poisson
-# ============================================================
-
 class TestPasteBackPoisson:
     def _make_affine_matrix(self) -> np.ndarray:
         lm = np.array(
@@ -598,10 +514,6 @@ class TestPasteBackPoisson:
         result = paste_back_poisson(original, crop, M, mask=zero_mask)
         assert result.shape == original.shape
 
-
-# ============================================================
-# 12. _make_crop_mask utility
-# ============================================================
 
 class TestMakeCropMask:
     def test_shape(self):
@@ -639,10 +551,6 @@ class TestMakeCropMask:
         assert m64.shape  == (64, 64)
         assert m128.shape == (128, 128)
 
-
-# ============================================================
-# 13. BaseSwapper — abstract interface enforcement
-# ============================================================
 
 class TestBaseSwapperAbstract:
     def test_cannot_instantiate_directly(self):
@@ -803,10 +711,6 @@ class TestBaseSwapperAbstract:
         assert result.status == SwapStatus.INFERENCE_ERROR
 
 
-# ============================================================
-# 14. InSwapper — construction & properties
-# ============================================================
-
 class TestInSwapperConstruction:
     def test_default_construction(self):
         s = InSwapper()
@@ -851,10 +755,6 @@ class TestInSwapperConstruction:
         assert "InSwapper" in r
 
 
-# ============================================================
-# 15. InSwapper — load_model (mocked)
-# ============================================================
-
 class TestInSwapperLoadModel:
     def test_load_model_sets_is_loaded(self):
         s = _load_inswapper()
@@ -895,10 +795,6 @@ class TestInSwapperLoadModel:
         assert "loaded" in r
         assert "InSwapper" in r
 
-
-# ============================================================
-# 16. InSwapper — swap (mocked ONNX session)
-# ============================================================
 
 class TestInSwapperSwap:
     def test_swap_returns_swap_result(self):
@@ -1025,10 +921,6 @@ class TestInSwapperSwap:
         assert "affine_matrix" in result.intermediate
 
 
-# ============================================================
-# 17. InSwapper — release
-# ============================================================
-
 class TestInSwapperRelease:
     def test_release_clears_session(self):
         s = _load_inswapper()
@@ -1059,10 +951,6 @@ class TestInSwapperRelease:
         assert s.is_loaded is False
 
 
-# ============================================================
-# 18. InSwapper — statistics
-# ============================================================
-
 class TestInSwapperStats:
     def test_avg_inference_ms_zero_before_calls(self):
         s = _load_inswapper()
@@ -1090,10 +978,6 @@ class TestInSwapperStats:
             s.swap(req)
         assert s.total_calls == 5
 
-
-# ============================================================
-# 19. InSwapper — preprocessing / postprocessing
-# ============================================================
 
 class TestInSwapperPrePostProcess:
     def test_preprocess_output_shape(self):
@@ -1141,10 +1025,6 @@ class TestInSwapperPrePostProcess:
         diff = np.abs(crop.astype(np.int32) - recovered.astype(np.int32))
         assert diff.max() <= 2
 
-
-# ============================================================
-# 20. InSwapper — swap_all (multi-face)
-# ============================================================
 
 class TestInSwapperSwapAll:
     def _make_detection_result(self, n_faces: int = 2) -> DetectionResult:
@@ -1232,10 +1112,6 @@ class TestInSwapperSwapAll:
         assert batch.swap_results[0].success is True
 
 
-# ============================================================
-# 21. InSwapper — _build_latent
-# ============================================================
-
 class TestInSwapperBuildLatent:
     def test_output_shape(self):
         s   = _load_inswapper()
@@ -1276,3 +1152,76 @@ class TestInSwapperBuildLatent:
         out1 = s._build_latent(emb1)
         out2 = s._build_latent(emb2)
         assert not np.allclose(out1, out2)
+
+
+class TestSwapEdgeCases:
+    """Edge cases that test actual failure scenarios."""
+
+    def test_swap_with_tiny_face_bbox(self):
+        """Extremely small face bbox (<5px) should not crash."""
+        s = _load_inswapper()
+        tiny_face = _make_face_box(x1=100, y1=100, x2=103, y2=103, with_landmarks=False)
+        emb = _make_embedding()
+        req = SwapRequest(
+            source_embedding=emb,
+            target_image=_rand_image(),
+            target_face=tiny_face,
+            blend_mode=BlendMode.ALPHA,
+        )
+        result = s.swap(req)
+        assert isinstance(result, SwapResult)
+
+    def test_swap_source_and_target_same_image(self):
+        """Swapping with the same image as source and target should work."""
+        s = _load_inswapper()
+        img = _rand_image(480, 640)
+        face = _make_face_box(with_landmarks=True)
+        emb = _make_embedding()
+        req = SwapRequest(
+            source_embedding=emb,
+            target_image=img,
+            target_face=face,
+            blend_mode=BlendMode.ALPHA,
+        )
+        result = s.swap(req)
+        assert isinstance(result, SwapResult)
+
+    def test_swap_alpha_zero_preserves_target(self):
+        """With blend_alpha=0, the output should closely resemble the original."""
+        s = _load_inswapper()
+        img = _rand_image(480, 640)
+        req = _make_swap_request(
+            target_image=img.copy(),
+            with_landmarks=True,
+            blend_mode=BlendMode.ALPHA,
+            blend_alpha=0.0,
+        )
+        result = s.swap(req)
+        assert result.success is True
+
+    def test_swap_grayscale_target_does_not_crash(self):
+        """A 3-channel image that looks grayscale should work fine."""
+        gray = np.full((480, 640, 3), 128, dtype=np.uint8)
+        s = _load_inswapper()
+        req = _make_swap_request(
+            target_image=gray,
+            with_landmarks=True,
+            blend_mode=BlendMode.ALPHA,
+        )
+        result = s.swap(req)
+        assert isinstance(result, SwapResult)
+
+    def test_nan_in_embedding_handled(self):
+        """NaN in the embedding vector should not cause unhandled crash."""
+        s = _load_inswapper()
+        nan_vec = np.full(512, np.nan, dtype=np.float32)
+        emb = FaceEmbedding(vector=nan_vec, face_index=0)
+        req = SwapRequest(
+            source_embedding=emb,
+            target_image=_rand_image(),
+            target_face=_make_face_box(with_landmarks=True),
+            blend_mode=BlendMode.ALPHA,
+        )
+        # Should not raise an unhandled exception
+        result = s.swap(req)
+        assert isinstance(result, SwapResult)

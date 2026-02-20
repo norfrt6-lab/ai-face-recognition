@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# tests/integration/test_pipeline.py
-# ============================================================
 # Integration tests for Phase 6 — Pipeline Orchestration.
 #
 # Covers:
@@ -20,7 +16,6 @@
 #
 # All AI models (detector, recognizer, swapper, enhancer) are
 # replaced with lightweight mocks — no real weights required.
-# ============================================================
 
 from __future__ import annotations
 
@@ -63,10 +58,6 @@ from core.swapper.base_swapper import (
     SwapStatus,
 )
 
-
-# ============================================================
-# Shared test helpers
-# ============================================================
 
 def _blank_image(h: int = 480, w: int = 640) -> np.ndarray:
     """Return a solid-colour BGR image."""
@@ -157,10 +148,6 @@ def _make_enhancement_result(success: bool = True) -> EnhancementResult:
     )
 
 
-# ============================================================
-# Mock component factories
-# ============================================================
-
 def _mock_detector(n_faces: int = 1, empty: bool = False) -> MagicMock:
     detector = MagicMock()
     detector.is_loaded = True
@@ -233,10 +220,6 @@ def _make_pipeline(
     )
 
 
-# ============================================================
-# 1. PipelineConfig
-# ============================================================
-
 @pytest.mark.integration
 @pytest.mark.pipeline
 class TestPipelineConfig:
@@ -291,10 +274,6 @@ class TestPipelineConfig:
         assert PipelineConfig().upscale == 2
 
 
-# ============================================================
-# 2. PipelineTiming
-# ============================================================
-
 @pytest.mark.integration
 @pytest.mark.pipeline
 class TestPipelineTiming:
@@ -341,10 +320,6 @@ class TestPipelineTiming:
         )
         assert t.pipeline_overhead_ms >= 0.0
 
-
-# ============================================================
-# 3. PipelineResult
-# ============================================================
 
 @pytest.mark.integration
 @pytest.mark.pipeline
@@ -411,10 +386,6 @@ class TestPipelineResult:
         assert r.error is None
 
 
-# ============================================================
-# 4. _timer helper
-# ============================================================
-
 @pytest.mark.integration
 @pytest.mark.pipeline
 class TestTimerHelper:
@@ -436,10 +407,6 @@ class TestTimerHelper:
         # Should be within 10–200 ms of 50 ms
         assert 20 < elapsed < 300
 
-
-# ============================================================
-# 5. _apply_watermark helper
-# ============================================================
 
 @pytest.mark.integration
 @pytest.mark.pipeline
@@ -484,10 +451,6 @@ class TestApplyWatermark:
         out = _apply_watermark(img, "AI GENERATED")
         assert out.shape == (1080, 1920, 3)
 
-
-# ============================================================
-# 6. FacePipeline — construction
-# ============================================================
 
 @pytest.mark.integration
 @pytest.mark.pipeline
@@ -539,10 +502,6 @@ class TestFacePipelineConstruction:
         assert "FacePipeline" in r
 
 
-# ============================================================
-# 7. FacePipeline — consent gate
-# ============================================================
-
 @pytest.mark.integration
 @pytest.mark.pipeline
 class TestFacePipelineConsentGate:
@@ -586,10 +545,6 @@ class TestFacePipelineConsentGate:
         result = p.run(_blank_image(), _blank_image(), consent=False, config=cfg)
         assert result.status != PipelineStatus.CONSENT_DENIED
 
-
-# ============================================================
-# 8. FacePipeline — no-face paths
-# ============================================================
 
 @pytest.mark.integration
 @pytest.mark.pipeline
@@ -638,10 +593,6 @@ class TestFacePipelineNoFace:
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert result.status == PipelineStatus.NO_SOURCE_FACE
 
-
-# ============================================================
-# 9. FacePipeline — successful swap paths
-# ============================================================
 
 @pytest.mark.integration
 @pytest.mark.pipeline
@@ -746,10 +697,6 @@ class TestFacePipelineSuccessfulSwap:
         assert r1.request_id != r2.request_id
 
 
-# ============================================================
-# 10. FacePipeline — partial failures
-# ============================================================
-
 @pytest.mark.integration
 @pytest.mark.pipeline
 class TestFacePipelinePartialFailure:
@@ -814,10 +761,6 @@ class TestFacePipelinePartialFailure:
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert result.status == PipelineStatus.STAGE_ERROR
 
-
-# ============================================================
-# 11. FacePipeline — enhancement stage
-# ============================================================
 
 @pytest.mark.integration
 @pytest.mark.pipeline
@@ -891,10 +834,6 @@ class TestFacePipelineEnhancement:
         assert result.timing.enhance_ms >= 0.0
 
 
-# ============================================================
-# 12. FacePipeline — watermark stage
-# ============================================================
-
 @pytest.mark.integration
 @pytest.mark.pipeline
 class TestFacePipelineWatermark:
@@ -923,10 +862,6 @@ class TestFacePipelineWatermark:
         result = p.run(_blank_image(), _blank_image(), consent=True)
         assert result.success is True
 
-
-# ============================================================
-# 13. VideoProcessingConfig
-# ============================================================
 
 @pytest.mark.integration
 @pytest.mark.pipeline
@@ -990,10 +925,6 @@ class TestVideoProcessingConfig:
         assert calls == [(5, 100)]
 
 
-# ============================================================
-# 14. VideoProcessingResult
-# ============================================================
-
 @pytest.mark.integration
 @pytest.mark.pipeline
 class TestVideoProcessingResult:
@@ -1035,10 +966,6 @@ class TestVideoProcessingResult:
         r = VideoProcessingResult(output_path="/tmp/result.mp4")
         assert r.output_path == "/tmp/result.mp4"
 
-
-# ============================================================
-# 15. VideoPipeline — construction and repr
-# ============================================================
 
 @pytest.mark.integration
 @pytest.mark.pipeline
@@ -1083,10 +1010,6 @@ class TestVideoPipelineConstruction:
         assert "None" in repr(vp)
 
 
-# ============================================================
-# 16. VideoPipeline._capped_resolution
-# ============================================================
-
 @pytest.mark.integration
 @pytest.mark.pipeline
 class TestCappedResolution:
@@ -1124,10 +1047,6 @@ class TestCappedResolution:
         assert w == 320
         assert h == 240
 
-
-# ============================================================
-# 17. VideoPipeline._add_watermark
-# ============================================================
 
 @pytest.mark.integration
 @pytest.mark.pipeline
@@ -1170,10 +1089,6 @@ class TestVideoPipelineAddWatermark:
         out = VideoPipeline._add_watermark(img, "AI GENERATED")
         assert out.shape == (1080, 1920, 3)
 
-
-# ============================================================
-# 18. VideoPipeline._process_frame
-# ============================================================
 
 @pytest.mark.integration
 @pytest.mark.pipeline
@@ -1255,10 +1170,6 @@ class TestVideoPipelineProcessFrame:
         # On failure, single swap returns original frame
         assert out.shape == frame.shape
 
-
-# ============================================================
-# 19. VideoPipeline.process — file-based video
-# ============================================================
 
 @pytest.mark.integration
 @pytest.mark.pipeline
@@ -1410,10 +1321,6 @@ class TestVideoPipelineProcess:
         vp.process(source_video=src, output_path=out, config=cfg)
         assert new_dir.exists()
 
-
-# ============================================================
-# 20. VideoPipeline._merge_audio
-# ============================================================
 
 @pytest.mark.integration
 @pytest.mark.pipeline

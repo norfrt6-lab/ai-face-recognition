@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# core/recognizer/face_database.py
-# ============================================================
 # Persistent face identity store with cosine similarity search.
 #
 # Features:
@@ -13,7 +9,6 @@
 #   - Identity management (add, remove, rename, list, count)
 #   - Bulk import / export helpers
 #   - Statistics and diagnostics
-# ============================================================
 
 from __future__ import annotations
 
@@ -37,10 +32,6 @@ from core.recognizer.base_recognizer import (
     cosine_similarity_matrix,
 )
 
-
-# ============================================================
-# Data Types
-# ============================================================
 
 @dataclass
 class FaceIdentity:
@@ -181,10 +172,6 @@ class SearchResult:
             f"time={self.search_time_ms:.1f}ms)"
         )
 
-
-# ============================================================
-# FaceDatabase
-# ============================================================
 
 class FaceDatabase:
     """
@@ -347,7 +334,7 @@ class FaceDatabase:
         if not embeddings:
             raise ValueError("embeddings list must not be empty.")
 
-        identity = None
+        identity: FaceIdentity = None  # type: ignore[assignment]
         for i, emb in enumerate(embeddings):
             identity = self.register(
                 name,
@@ -355,7 +342,8 @@ class FaceDatabase:
                 metadata=metadata,
                 overwrite=(overwrite and i == 0),   # overwrite only on first
             )
-        return identity  # type: ignore[return-value]
+        assert identity is not None, "Loop must execute at least once (empty check above)"
+        return identity
 
     # ------------------------------------------------------------------
     # Search / recognition
@@ -591,8 +579,8 @@ class FaceDatabase:
             if self._strategy == "best":
                 with self._lock:
                     identity = self._identities.get(best_name)
-                if identity:
-                    best_sim = identity.best_similarity(vectors[i])
+                    if identity:
+                        best_sim = identity.best_similarity(vectors[i])
 
             best_dist = float(np.sqrt(max(0.0, 2.0 * (1.0 - best_sim))))
             is_known  = best_sim >= threshold

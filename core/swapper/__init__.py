@@ -1,8 +1,3 @@
-# ============================================================
-# core/swapper/__init__.py
-# Face Swap Engine Package — Phase 4
-# ============================================================
-
 try:
     from core.swapper.base_swapper import (
         BaseSwapper,

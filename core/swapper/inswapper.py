@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# core/swapper/inswapper.py
-# ============================================================
 # Concrete implementation of BaseSwapper using the
 # inswapper_128.onnx model (InsightFace / roop lineage).
 #
@@ -16,10 +12,10 @@
 #   4. ONNX inference    → swapped 128×128 face patch
 #   5. Post-process      → BGR uint8
 #   6. Paste-back        → Poisson or alpha blend into target frame
-# ============================================================
 
 from __future__ import annotations
 
+import threading
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -56,10 +52,6 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-# ============================================================
-# Pre-processing / post-processing constants
-# ============================================================
-
 # Mean and std used by inswapper (same as ArcFace / most InsightFace models)
 _MEAN = np.array([0.5, 0.5, 0.5], dtype=np.float32)
 _STD  = np.array([0.5, 0.5, 0.5], dtype=np.float32)
@@ -67,10 +59,6 @@ _STD  = np.array([0.5, 0.5, 0.5], dtype=np.float32)
 # Native model resolution
 _MODEL_INPUT_SIZE = 128
 
-
-# ============================================================
-# InSwapper
-# ============================================================
 
 class InSwapper(BaseSwapper):
     """
@@ -138,7 +126,8 @@ class InSwapper(BaseSwapper):
         self._output_name: Optional[str] = None   # swapped-face tensor name
         self._emap:        Optional[np.ndarray] = None  # (512, 512) identity matrix
 
-        # Inference statistics (cumulative)
+        # Inference statistics (cumulative, guarded by _stats_lock)
+        self._stats_lock               = threading.Lock()
         self._total_calls:     int   = 0
         self._total_inference: float = 0.0  # ms
 
@@ -192,8 +181,7 @@ class InSwapper(BaseSwapper):
                 f"Failed to create ONNX Runtime session for {self.model_path}: {exc}"
             ) from exc
 
-        # ── Introspect model inputs / outputs ───────────────────────
-        inputs  = self._session.get_inputs()
+            inputs  = self._session.get_inputs()
         outputs = self._session.get_outputs()
 
         if len(inputs) < 2:
@@ -210,8 +198,7 @@ class InSwapper(BaseSwapper):
         self._latent_name = inputs[1].name
         self._output_name = outputs[0].name
 
-        # ── Extract emap (identity projection matrix) ───────────────
-        # The emap is stored as an initialiser / weight in the ONNX graph.
+            # The emap is stored as an initialiser / weight in the ONNX graph.
         # It maps a 512-dim ArcFace embedding → 512-dim latent code that
         # the model can condition on.
         self._emap = self._extract_emap()
@@ -272,11 +259,9 @@ class InSwapper(BaseSwapper):
                 t0,
             )
 
-        # ── Step 1: Get landmarks ───────────────────────────────────
         t_align = self._timer()
         landmarks = self._get_landmarks(request.target_face)
 
-        # ── Step 2: Align target face crop ─────────────────────────
         aligned_crop, affine_M = norm_crop(
             request.target_image,
             landmarks,
@@ -294,13 +279,10 @@ class InSwapper(BaseSwapper):
 
         align_time = self._timer() - t_align
 
-        # ── Step 3: Pre-process crop tensor ────────────────────────
         crop_tensor = self._preprocess(aligned_crop)    # (1, 3, 128, 128)
 
-        # ── Step 4: Build latent identity code ─────────────────────
         latent = self._build_latent(request.source_embedding)  # (1, 512)
 
-        # ── Step 5: ONNX inference ──────────────────────────────────
         t_inf = self._timer()
         try:
             outputs = self._session.run(
@@ -310,7 +292,7 @@ class InSwapper(BaseSwapper):
                     self._latent_name: latent,
                 },
             )
-        except Exception as exc:
+        except (RuntimeError, ValueError, OSError) as exc:
             logger.error(f"inswapper inference error: {exc}")
             return self._make_failed_result(
                 SwapStatus.INFERENCE_ERROR,
@@ -321,10 +303,8 @@ class InSwapper(BaseSwapper):
             )
         inference_time = self._timer() - t_inf
 
-        # ── Step 6: Post-process output tensor ─────────────────────
         swapped_crop = self._postprocess(outputs[0])    # (128, 128, 3) BGR uint8
 
-        # ── Step 7: Paste swapped crop back into frame ─────────────
         t_blend = self._timer()
 
         blend_mode = request.blend_mode if request.blend_mode is not None else self.blend_mode
@@ -340,7 +320,7 @@ class InSwapper(BaseSwapper):
                 alpha=alpha,
                 feather=feather,
             )
-        except Exception as exc:
+        except (RuntimeError, ValueError, cv2.error) as exc:
             logger.error(f"paste-back error: {exc}")
             return self._make_failed_result(
                 SwapStatus.BLEND_ERROR,
@@ -352,9 +332,9 @@ class InSwapper(BaseSwapper):
 
         blend_time = self._timer() - t_blend
 
-        # ── Stats ──────────────────────────────────────────────────
-        self._total_calls     += 1
-        self._total_inference += inference_time
+        with self._stats_lock:
+            self._total_calls     += 1
+            self._total_inference += inference_time
         total_time = self._timer() - t0
 
         logger.debug(
@@ -401,19 +381,22 @@ class InSwapper(BaseSwapper):
     @property
     def avg_inference_ms(self) -> float:
         """Average ONNX inference time per call in milliseconds."""
-        if self._total_calls == 0:
-            return 0.0
-        return self._total_inference / self._total_calls
+        with self._stats_lock:
+            if self._total_calls == 0:
+                return 0.0
+            return self._total_inference / self._total_calls
 
     @property
     def total_calls(self) -> int:
         """Total number of swap() calls since model was loaded."""
-        return self._total_calls
+        with self._stats_lock:
+            return self._total_calls
 
     def reset_stats(self) -> None:
         """Reset cumulative inference statistics."""
-        self._total_calls     = 0
-        self._total_inference = 0.0
+        with self._stats_lock:
+            self._total_calls     = 0
+            self._total_inference = 0.0
 
     # ------------------------------------------------------------------
     # Internal preprocessing / postprocessing

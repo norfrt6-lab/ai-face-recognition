@@ -1,14 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap - Model Downloader
-# ============================================================
-# Auto-downloads all required model weights:
-#   - YOLOv8n-face          (.pt)
-#   - InsightFace buffalo_l  (via insightface SDK)
-#   - inswapper_128.onnx    (Hugging Face)
-#   - GFPGANv1.4.pth        (GitHub release)
-#   - CodeFormer.pth        (GitHub release)
-# ============================================================
-
 from __future__ import annotations
 
 import hashlib
@@ -28,10 +17,6 @@ from tqdm import tqdm
 ROOT_DIR: Path = Path(__file__).resolve().parent.parent
 MODELS_DIR: Path = ROOT_DIR / "models"
 
-
-# ============================================================
-# Model Registry
-# ============================================================
 
 @dataclass
 class ModelSpec:
@@ -58,7 +43,6 @@ class ModelSpec:
 
 # Official / mirrored download URLs
 _MODEL_REGISTRY: Dict[str, ModelSpec] = {
-    # ── YOLOv8n-face ──────────────────────────────────────────────────────
     # Trained on WIDERFace by akanametov — lightweight & fast
     "yolov8n-face": ModelSpec(
         name="YOLOv8n-face",
@@ -69,7 +53,6 @@ _MODEL_REGISTRY: Dict[str, ModelSpec] = {
         ],
         sha256=None,  # Update with known hash after first download
     ),
-    # ── YOLOv8s-face (higher accuracy alternative) ────────────────────────
     "yolov8s-face": ModelSpec(
         name="YOLOv8s-face",
         filename="yolov8s-face.pt",
@@ -77,21 +60,19 @@ _MODEL_REGISTRY: Dict[str, ModelSpec] = {
         mirrors=[],
         sha256=None,
     ),
-    # ── InsightFace buffalo_l ─────────────────────────────────────────────
     # Downloaded via the insightface Python SDK (handled separately below)
     "buffalo_l": ModelSpec(
         name="InsightFace buffalo_l",
         filename="buffalo_l.zip",
-        url="https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip",
+        url="https://huggingface.co/datasets/Gourieff/ReActor/resolve/main/models/buffalo_l.zip",
         mirrors=[
-            "https://huggingface.co/datasets/Gourieff/ReActor/resolve/main/models/buffalo_l.zip",
+            "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip",
         ],
         sha256=None,
         subdirectory=None,     # will be extracted to models/buffalo_l/
         unzip=True,
         post_download="buffalo_l_extract",
     ),
-    # ── inswapper_128.onnx ───────────────────────────────────────────────
     "inswapper_128": ModelSpec(
         name="inswapper_128 (face swap ONNX)",
         filename="inswapper_128.onnx",
@@ -101,27 +82,20 @@ _MODEL_REGISTRY: Dict[str, ModelSpec] = {
         ],
         sha256=None,
     ),
-    # ── GFPGANv1.4.pth ───────────────────────────────────────────────────
     "gfpgan_v1.4": ModelSpec(
         name="GFPGANv1.4 (face restoration)",
         filename="GFPGANv1.4.pth",
         url="https://github.com/TencentARC/GFPGAN/releases/download/v1.3.4/GFPGANv1.4.pth",
-        mirrors=[
-            "https://huggingface.co/datasets/Gourieff/ReActor/resolve/main/models/GFPGANv1.4.pth",
-        ],
+        mirrors=[],
         sha256=None,
     ),
-    # ── CodeFormer.pth ────────────────────────────────────────────────────
     "codeformer": ModelSpec(
         name="CodeFormer (face restoration)",
         filename="codeformer.pth",
         url="https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/codeformer.pth",
-        mirrors=[
-            "https://huggingface.co/datasets/Gourieff/ReActor/resolve/main/models/codeformer.pth",
-        ],
+        mirrors=[],
         sha256=None,
     ),
-    # ── detection_Resnet50_Final.pth  (RetinaFace — used by GFPGAN) ───────
     "retinaface_resnet50": ModelSpec(
         name="RetinaFace ResNet50 (face parsing)",
         filename="detection_Resnet50_Final.pth",
@@ -130,7 +104,6 @@ _MODEL_REGISTRY: Dict[str, ModelSpec] = {
         sha256=None,
         subdirectory="facexlib",
     ),
-    # ── parsing_parsenet.pth  (face parsing — used by GFPGAN) ─────────────
     "parsenet": ModelSpec(
         name="ParseNet (face parsing)",
         filename="parsing_parsenet.pth",
@@ -141,10 +114,6 @@ _MODEL_REGISTRY: Dict[str, ModelSpec] = {
     ),
 }
 
-
-# ============================================================
-# Core Download Logic
-# ============================================================
 
 def _download_file(
     url: str,
@@ -279,10 +248,6 @@ def _download_with_fallback(
     return False
 
 
-# ============================================================
-# Post-Download Actions
-# ============================================================
-
 def _post_buffalo_l_extract(spec: ModelSpec) -> bool:
     """
     Extract buffalo_l.zip into models/buffalo_l/ directory.
@@ -331,10 +296,6 @@ _POST_DOWNLOAD_ACTIONS: Dict[str, Callable[[ModelSpec], bool]] = {
 }
 
 
-# ============================================================
-# InsightFace SDK-based Download (alternative to manual)
-# ============================================================
-
 def _download_buffalo_l_via_sdk() -> bool:
     """
     Use the insightface Python SDK to download & cache the buffalo_l model pack.
@@ -365,10 +326,6 @@ def _download_buffalo_l_via_sdk() -> bool:
         logger.warning(f"  InsightFace SDK download failed ({exc}) — trying manual.")
         return False
 
-
-# ============================================================
-# Public API
-# ============================================================
 
 def is_model_present(key: str) -> bool:
     """
@@ -424,7 +381,6 @@ def download_model(
 
     spec = _MODEL_REGISTRY[key]
 
-    # ── buffalo_l: prefer InsightFace SDK then manual ZIP ─────────────────
     if key == "buffalo_l":
         if not force and is_model_present("buffalo_l"):
             logger.info(f"  [SKIP] {spec.name} already present.")
@@ -495,7 +451,6 @@ def download_all_models(
 
         results[key] = download_model(key, force=force, show_progress=show_progress)
 
-    # ── Summary ────────────────────────────────────────────────────────────
     logger.info("=" * 60)
     ok_count = sum(1 for v in results.values() if v)
     fail_count = len(results) - ok_count
@@ -582,10 +537,6 @@ def get_model_path(key: str) -> Path:
 
     return _MODEL_REGISTRY[key].local_path
 
-
-# ============================================================
-# CLI Entry Point
-# ============================================================
 
 def _parse_args():
     import argparse

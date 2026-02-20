@@ -1,8 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap - Application Settings
-# Powered by Pydantic BaseSettings (env-driven config)
-# ============================================================
-
 from __future__ import annotations
 
 import os
@@ -211,6 +206,26 @@ class APISettings(BaseSettings):
         description="Maximum API requests per minute per client IP.",
     )
 
+    # API key authentication (comma-separated keys; empty = auth disabled)
+    api_keys: List[str] = Field(
+        default_factory=list,
+        description="Accepted API keys for X-API-Key header. Empty list disables auth.",
+    )
+
+    # Upload constraints
+    max_upload_bytes: int = Field(
+        default=10 * 1024 * 1024,
+        description="Maximum upload file size in bytes (default 10 MB).",
+    )
+    max_image_dimension: int = Field(
+        default=4096,
+        description="Maximum width or height for uploaded images in pixels.",
+    )
+    min_image_dimension: int = Field(
+        default=10,
+        description="Minimum width or height for uploaded images in pixels.",
+    )
+
 
 class UISettings(BaseSettings):
     """Streamlit UI settings."""
@@ -264,7 +279,10 @@ class StorageSettings(BaseSettings):
     @classmethod
     def create_dirs(cls, v: str | Path) -> Path:
         path = Path(v)
-        path.mkdir(parents=True, exist_ok=True)
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise ValueError(f"Cannot create directory {path}: {exc}") from exc
         return path
 
 
@@ -318,16 +336,12 @@ class EthicsSettings(BaseSettings):
         default="AI GENERATED",
         description="Text to overlay on watermarked output images.",
     )
-    # NSFW detection gate (requires additional classifier model)
+    # NSFW detection gate (not yet implemented — requires additional classifier model)
     enable_nsfw_filter: bool = Field(
         default=False,
-        description="Run NSFW classifier on input before processing (requires extra model).",
+        description="Run NSFW classifier on input before processing. Not yet implemented.",
     )
 
-
-# ============================================================
-# Root settings object — aggregates all sub-settings
-# ============================================================
 
 class Settings(BaseSettings):
     """
@@ -377,9 +391,5 @@ class Settings(BaseSettings):
     def models_dir(self) -> Path:
         return ROOT_DIR / "models"
 
-
-# ============================================================
-# Singleton — import this throughout the project
-# ============================================================
 
 settings = Settings()

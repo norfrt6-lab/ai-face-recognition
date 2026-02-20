@@ -1,15 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap - Mask Utilities
-# ============================================================
-# Helpers for:
-#   - Generating soft face masks from landmarks / bboxes
-#   - Convex hull face masks
-#   - Occlusion-aware masks
-#   - Mask morphology (dilate, erode, feather)
-#   - Mask-based blending (alpha, Poisson, seamless clone)
-#   - Mask visualization / debugging
-# ============================================================
-
 from __future__ import annotations
 
 from typing import List, Optional, Tuple
@@ -24,10 +12,6 @@ Mask      = np.ndarray          # (H, W)    uint8  0-255
 BBox      = Tuple[int, int, int, int]   # (x1, y1, x2, y2)
 Landmarks = np.ndarray          # (N, 2) float32  (x, y) pairs
 
-
-# ============================================================
-# 1. BASIC SHAPE MASKS
-# ============================================================
 
 def ellipse_mask(
     height: int,
@@ -121,10 +105,6 @@ def empty_mask(height: int, width: int) -> Mask:
     """Return an all-black (0) mask of the given dimensions."""
     return np.zeros((height, width), dtype=np.uint8)
 
-
-# ============================================================
-# 2. LANDMARK-BASED MASKS
-# ============================================================
 
 def convex_hull_mask(
     height: int,
@@ -246,10 +226,6 @@ def landmarks_region_mask(
     return mask
 
 
-# ============================================================
-# 3. BBOX-BASED FACE MASKS
-# ============================================================
-
 def face_bbox_mask(
     frame_height: int,
     frame_width: int,
@@ -331,10 +307,6 @@ def multi_face_mask(
         combined = np.maximum(combined, face_m)
     return combined
 
-
-# ============================================================
-# 4. MASK MORPHOLOGY
-# ============================================================
 
 def dilate_mask(mask: Mask, radius: int) -> Mask:
     """
@@ -460,10 +432,6 @@ def crop_mask_to_bbox(mask: Mask, bbox: BBox) -> Mask:
     return result
 
 
-# ============================================================
-# 5. MASK-BASED BLENDING
-# ============================================================
-
 def apply_mask_blend(
     src: Frame,
     dst: Frame,
@@ -567,10 +535,6 @@ def region_copy_blend(
     return result
 
 
-# ============================================================
-# 6. OCCLUSION / EDGE-AWARE MASKS
-# ============================================================
-
 def edge_aware_mask(
     image: Frame,
     base_mask: Mask,
@@ -654,10 +618,6 @@ def skin_color_mask(
     return combined
 
 
-# ============================================================
-# 7. MASK ANALYSIS & VALIDATION
-# ============================================================
-
 def mask_coverage(mask: Mask) -> float:
     """
     Return the fraction of non-zero pixels in the mask [0.0, 1.0].
@@ -723,10 +683,6 @@ def float_to_mask(arr: np.ndarray) -> Mask:
     """Convert a float32 array in [0.0, 1.0] back to uint8 [0, 255]."""
     return np.clip(arr * 255.0, 0, 255).astype(np.uint8)
 
-
-# ============================================================
-# 8. VISUALISATION
-# ============================================================
 
 def visualize_mask(
     image: Frame,
@@ -807,10 +763,6 @@ def visualize_all_masks(
         vis = visualize_mask(vis, mask, color=color, alpha=alpha, show_contour=True)
     return vis
 
-
-# ============================================================
-# 9. PRIVATE HELPERS
-# ============================================================
 
 def _odd_kernel(radius: int) -> int:
     """

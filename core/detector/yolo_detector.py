@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# core/detector/yolo_detector.py
-# ============================================================
 # YOLOv8-based face detector implementation.
 #
 # Uses the Ultralytics YOLOv8 model fine-tuned on face detection
@@ -16,7 +12,6 @@
 #   - Face crop extraction
 #   - Bounding-box + landmark visualisation
 #   - Thread-safe model loading guard
-# ============================================================
 
 from __future__ import annotations
 
@@ -35,11 +30,8 @@ from core.detector.base_detector import (
     FaceBox,
     face_box_from_xyxy,
 )
+from utils.image_utils import normalise_channels
 
-
-# ============================================================
-# YOLOFaceDetector
-# ============================================================
 
 class YOLOFaceDetector(BaseDetector):
     """
@@ -157,7 +149,7 @@ class YOLOFaceDetector(BaseDetector):
             if (
                 not model_path.exists()
                 and "/" not in self.model_path
-                and "\\" not in self.model_path
+                and os.sep not in self.model_path
             ):
                 # Ultralytics Hub name — YOLO will auto-download
                 logger.info(
@@ -236,14 +228,12 @@ class YOLOFaceDetector(BaseDetector):
         """
         self._require_loaded()
 
-        # ── Decode input to BGR ndarray ────────────────────────────────
         bgr = self._to_bgr(image)
         self._validate_image(bgr)
 
         h, w = bgr.shape[:2]
         t0 = self._timer()
 
-        # ── Run YOLO inference ─────────────────────────────────────────
         try:
             results = self._model.predict(
                 source=bgr,
@@ -270,24 +260,20 @@ class YOLOFaceDetector(BaseDetector):
 
         inference_ms = self._timer() - t0
 
-        # ── Parse YOLO results → FaceBox list ──────────────────────────
         faces = self._parse_results(results, src_w=w, src_h=h)
 
-        # ── Post-filtering ─────────────────────────────────────────────
         faces = [
             f for f in faces
             if f.width >= self.min_face_size
             and f.height >= self.min_face_size
         ]
 
-        # ── Sort ───────────────────────────────────────────────────────
         faces = self._sort_faces(faces, strategy=self.sort_by)
 
         # Re-assign face_index after sort + filter
         for i, face in enumerate(faces):
             face.face_index = i
 
-        # ── Build result ───────────────────────────────────────────────
         detection = DetectionResult(
             faces=faces,
             image_width=w,
@@ -369,7 +355,6 @@ class YOLOFaceDetector(BaseDetector):
         total_ms = self._timer() - t0
         per_ms   = total_ms / len(images)
 
-        # ── Parse each result in the batch ────────────────────────────
         detection_results: List[DetectionResult] = []
 
         iterable = zip(batch_results, shapes)
@@ -553,10 +538,8 @@ class YOLOFaceDetector(BaseDetector):
         for face in result.faces:
             x1, y1, x2, y2 = face.x1, face.y1, face.x2, face.y2
 
-            # ── Bounding box ──────────────────────────────────────────
             cv2.rectangle(vis, (x1, y1), (x2, y2), box_color, box_thickness)
 
-            # ── Label ─────────────────────────────────────────────────
             parts = []
             if show_index:
                 parts.append(f"#{face.face_index}")
@@ -587,12 +570,10 @@ class YOLOFaceDetector(BaseDetector):
                     cv2.LINE_AA,
                 )
 
-            # ── Landmarks ─────────────────────────────────────────────
             if show_landmarks and face.has_landmarks:
                 for x, y in face.landmarks.astype(int):
                     cv2.circle(vis, (x, y), landmark_radius, landmark_color, -1, cv2.LINE_AA)
 
-        # ── Summary text ──────────────────────────────────────────────
         summary = f"Faces: {result.num_faces}  |  {result.inference_time_ms:.0f} ms"
         cv2.putText(
             vis, summary,
@@ -668,7 +649,7 @@ class YOLOFaceDetector(BaseDetector):
         if self._model is not None:
             try:
                 del self._model
-            except Exception:
+            except (AttributeError, TypeError):
                 pass
 
             if "cuda" in self.device:
@@ -676,7 +657,7 @@ class YOLOFaceDetector(BaseDetector):
                     import torch
                     torch.cuda.empty_cache()
                     logger.debug("CUDA cache cleared.")
-                except Exception:
+                except ImportError:
                     pass
 
         super().release()
@@ -729,7 +710,7 @@ class YOLOFaceDetector(BaseDetector):
         try:
             xyxy  = boxes.xyxy.cpu().numpy()    # shape (N, 4)
             confs = boxes.conf.cpu().numpy()     # shape (N,)
-        except Exception as exc:
+        except (AttributeError, IndexError, RuntimeError) as exc:
             logger.warning(f"Failed to parse YOLO boxes: {exc}")
             return []
 
@@ -739,7 +720,7 @@ class YOLOFaceDetector(BaseDetector):
             if yolo_result.keypoints is not None:
                 kp_data = yolo_result.keypoints.xy.cpu().numpy()   # (N, 5, 2)
                 landmarks_array = kp_data
-        except Exception:
+        except (AttributeError, RuntimeError):
             landmarks_array = None
 
         face_boxes: List[FaceBox] = []
@@ -839,13 +820,7 @@ class YOLOFaceDetector(BaseDetector):
             ValueError: If decoding fails or the type is unsupported.
         """
         if isinstance(source, np.ndarray):
-            img = source
-            # Normalise channels: BGRA → BGR, GRAY → BGR
-            if img.ndim == 2:
-                img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-            elif img.ndim == 3 and img.shape[2] == 4:
-                img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-            return img
+            return normalise_channels(source)
 
         if isinstance(source, (str, Path)):
             path = Path(source)

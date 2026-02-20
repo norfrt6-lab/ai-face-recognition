@@ -59,6 +59,9 @@ python-multipart>=0.0.9     # File upload support
 pydantic>=2.7.0             # Data validation & settings
 pydantic-settings>=2.2.0    # Environment-driven config
 
+# ------ Monitoring ------------------------------------------
+prometheus-client>=0.20.0   # Prometheus /metrics endpoint
+
 # ------ Utilities -------------------------------------------
 tqdm>=4.66.0                # Progress bars
 loguru>=0.7.2               # Structured logging

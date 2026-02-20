@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# core/recognizer/base_recognizer.py
-# ============================================================
 # Defines the abstract contract that ALL face recognizers must
 # implement, plus shared data-types used throughout the pipeline.
 #
@@ -14,7 +10,6 @@
 #   FaceEmbedding  — 512-dim ArcFace vector + metadata
 #   FaceMatch      — identity result from a database lookup
 #   FaceAttribute  — optional age / gender / expression info
-# ============================================================
 
 from __future__ import annotations
 
@@ -25,10 +20,6 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
-
-# ============================================================
-# Data Types
-# ============================================================
 
 @dataclass
 class FaceAttribute:
@@ -117,9 +108,9 @@ class FaceEmbedding:
         return float(np.linalg.norm(self.vector))
 
     @property
-    def is_normalised(self, tol: float = 1e-3) -> bool:
-        """True if the embedding vector has unit L2 norm (± tol)."""
-        return abs(self.norm - 1.0) < tol
+    def is_normalised(self) -> bool:
+        """True if the embedding vector has unit L2 norm (± 1e-3)."""
+        return abs(self.norm - 1.0) < 1e-3
 
     def normalise(self) -> "FaceEmbedding":
         """
@@ -323,10 +314,6 @@ class RecognitionResult:
         )
 
 
-# ============================================================
-# Cosine similarity utilities (module-level, no class needed)
-# ============================================================
-
 def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     """
     Compute cosine similarity between two 1-D vectors.
@@ -414,10 +401,6 @@ def average_embeddings(embeddings: List[np.ndarray]) -> np.ndarray:
         return mean
     return (mean / norm).astype(np.float32)
 
-
-# ============================================================
-# Abstract Base Recognizer
-# ============================================================
 
 class BaseRecognizer(ABC):
     """

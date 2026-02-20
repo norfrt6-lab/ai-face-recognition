@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# api/main.py
-# ============================================================
 # FastAPI application entry point.
 #
 # Responsibilities:
@@ -16,17 +12,18 @@
 #
 # Run with:
 #   uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
-# ============================================================
 
 from __future__ import annotations
 
+import os
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -39,10 +36,6 @@ setup_from_settings()
 
 logger = get_logger(__name__)
 
-
-# ============================================================
-# Lifespan — model loading / teardown
-# ============================================================
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -61,7 +54,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("AI Face Recognition & Face Swap API — starting up")
     logger.info("=" * 60)
 
-    # ── Load settings ────────────────────────────────────────────────
     try:
         from config.settings import settings  # noqa: PLC0415
         logger.info(
@@ -72,7 +64,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning(f"Could not load settings: {exc} — using defaults.")
         settings = None
 
-    # ── Attach output dir to state ───────────────────────────────────
     output_dir = (
         Path(settings.storage.output_dir)
         if settings
@@ -81,7 +72,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     output_dir.mkdir(parents=True, exist_ok=True)
     app.state.output_dir = output_dir
 
-    # ── Initialise detector ─────────────────────────────────────────
     app.state.detector = None
     try:
         from core.detector.yolo_detector import YOLOFaceDetector  # noqa: PLC0415
@@ -106,7 +96,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.error(f"Failed to load detector: {exc}")
 
-    # ── Initialise recognizer ────────────────────────────────────────
     app.state.recognizer = None
     try:
         from core.recognizer.insightface_recognizer import InsightFaceRecognizer  # noqa: PLC0415
@@ -131,7 +120,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.error(f"Failed to load recognizer: {exc}")
 
-    # ── Initialise swapper ───────────────────────────────────────────
     app.state.swapper = None
     try:
         from core.swapper.inswapper import InSwapper  # noqa: PLC0415
@@ -156,7 +144,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.error(f"Failed to load swapper: {exc}")
 
-    # ── Initialise enhancer (optional) ───────────────────────────────
     app.state.enhancer = None
     try:
         if settings and settings.enhancer.backend != "none":
@@ -190,7 +177,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.warning(f"Failed to load enhancer (non-critical): {exc}")
 
-    # ── Initialise face database ─────────────────────────────────────
     app.state.face_database = None
     app.state.face_database_path = None
     try:
@@ -216,14 +202,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.warning(f"Failed to initialise face database: {exc}")
 
+    pool_size = int(os.environ.get("INFERENCE_POOL_SIZE", "2"))
+    executor = ThreadPoolExecutor(max_workers=pool_size, thread_name_prefix="inference")
+    app.state.executor = executor
+    logger.info(f"Inference thread pool created (workers={pool_size})")
+
     logger.info("Startup complete — all components initialised.")
     logger.info("=" * 60)
 
-    # ── Yield (application runs here) ───────────────────────────────
     yield
 
-    # ── Shutdown ─────────────────────────────────────────────────────
     logger.info("Shutting down — releasing pipeline components...")
+    executor.shutdown(wait=True)
+    logger.info("Inference thread pool shut down.")
 
     for attr in ("detector", "recognizer", "swapper", "enhancer"):
         obj = getattr(app.state, attr, None)
@@ -247,10 +238,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Shutdown complete.")
 
 
-# ============================================================
-# App factory
-# ============================================================
-
 def create_app() -> FastAPI:
     """
     Create and configure the FastAPI application.
@@ -261,7 +248,6 @@ def create_app() -> FastAPI:
     Returns:
         Configured ``FastAPI`` instance.
     """
-    # ── Load settings for app metadata ──────────────────────────────
     try:
         from config.settings import settings  # noqa: PLC0415
         _version     = settings.app_version
@@ -295,16 +281,24 @@ def create_app() -> FastAPI:
         debug=_debug,
     )
 
-    # ── Middleware (CORS + Rate Limiter + Request ID) ─────────────────
     from api.middleware.cors import configure_middleware  # noqa: PLC0415
     configure_middleware(app)
 
-    # ── Routers ──────────────────────────────────────────────────────
     app.include_router(health.router,      prefix=_api_prefix)
     app.include_router(recognition.router, prefix=_api_prefix)
     app.include_router(swap.router,        prefix=_api_prefix)
 
-    # ── Static files (output images) ────────────────────────────────
+    from api.metrics import METRICS_AVAILABLE  # noqa: PLC0415
+    if METRICS_AVAILABLE:
+        from api.metrics import generate_latest, CONTENT_TYPE_LATEST  # noqa: PLC0415
+
+        @app.get("/metrics", include_in_schema=False)
+        async def metrics():
+            return Response(
+                content=generate_latest(),
+                media_type=CONTENT_TYPE_LATEST,
+            )
+
     try:
         from config.settings import settings as _settings  # noqa: PLC0415
         output_dir = Path(_settings.storage.output_dir)
@@ -317,16 +311,11 @@ def create_app() -> FastAPI:
         name="results",
     )
 
-    # ── Exception handlers ───────────────────────────────────────────
     _register_exception_handlers(app)
 
     logger.info(f"FastAPI app created | version={_version} prefix={_api_prefix}")
     return app
 
-
-# ============================================================
-# Exception handlers
-# ============================================================
 
 def _register_exception_handlers(app: FastAPI) -> None:
     """Register global exception handlers on *app*."""
@@ -377,12 +366,18 @@ def _register_exception_handlers(app: FastAPI) -> None:
     ) -> JSONResponse:
         """Catch-all handler — prevents stack traces leaking to clients."""
         logger.exception(f"Unhandled exception on {request.url}: {exc}")
+        message = "An unexpected error occurred. Please try again later."
+        details = []
+        if app.debug:
+            import traceback
+            message = f"{type(exc).__name__}: {exc}"
+            details = [ErrorDetail(message=line) for line in traceback.format_tb(exc.__traceback__)]
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ErrorResponse(
                 error="internal_server_error",
-                message="An unexpected error occurred. Please try again later.",
-                details=[],
+                message=message,
+                details=details,
                 request_id=getattr(request.state, "request_id", None),
             ).model_dump(),
         )
@@ -408,16 +403,8 @@ def _status_to_error_code(status_code: int) -> str:
     return mapping.get(status_code, f"http_{status_code}")
 
 
-# ============================================================
-# App instance (module-level for Uvicorn)
-# ============================================================
-
 app = create_app()
 
-
-# ============================================================
-# Root redirect
-# ============================================================
 
 @app.get("/", include_in_schema=False)
 async def root() -> JSONResponse:

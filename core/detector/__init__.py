@@ -1,8 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# core/detector/__init__.py
-# ============================================================
-
 from core.detector.base_detector import (
     BaseDetector,
     DetectionResult,

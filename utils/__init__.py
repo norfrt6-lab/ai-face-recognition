@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap - Utils Package
-# ============================================================
-
 from utils.logger import logger, setup_logger, setup_from_settings, get_logger
 from utils.image_utils import (
     load_image,

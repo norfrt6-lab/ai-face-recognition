@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# tests/unit/test_detector.py
-# ============================================================
 # Unit tests for:
 #   - FaceBox dataclass
 #   - DetectionResult dataclass
@@ -11,7 +7,6 @@
 # These tests use pytest + pytest-mock and do NOT require
 # actual model weights to be present on disk.
 # Heavy inference tests are guarded with 'integration' markers.
-# ============================================================
 
 from __future__ import annotations
 
@@ -31,10 +26,6 @@ from core.detector.base_detector import (
 )
 from core.detector.yolo_detector import YOLOFaceDetector
 
-
-# ============================================================
-# Fixtures
-# ============================================================
 
 @pytest.fixture
 def sample_face_box() -> FaceBox:
@@ -135,14 +126,9 @@ def mock_yolo_detector(tmp_path) -> YOLOFaceDetector:
     return detector
 
 
-# ============================================================
-# 1. FaceBox Tests
-# ============================================================
-
 class TestFaceBox:
     """Unit tests for the FaceBox dataclass."""
 
-    # ── Construction ────────────────────────────────────────
 
     def test_basic_construction(self, sample_face_box):
         fb = sample_face_box
@@ -170,7 +156,6 @@ class TestFaceBox:
         fb = FaceBox(x1=0, y1=0, x2=50, y2=50, confidence=0.8, track_id=42)
         assert fb.track_id == 42
 
-    # ── Geometry properties ──────────────────────────────────
 
     def test_width(self, sample_face_box):
         assert sample_face_box.width == 200   # 300 - 100
@@ -216,7 +201,6 @@ class TestFaceBox:
         fb = FaceBox(x1=50, y1=50, x2=50, y2=100, confidence=0.9)
         assert fb.area == 0
 
-    # ── scale() ─────────────────────────────────────────────
 
     def test_scale_uniform(self, sample_face_box):
         scaled = sample_face_box.scale(2.0, 2.0)
@@ -248,7 +232,6 @@ class TestFaceBox:
         scaled = sample_face_box.scale(1.0, 1.0)
         assert scaled.as_tuple == sample_face_box.as_tuple
 
-    # ── pad() ────────────────────────────────────────────────
 
     def test_pad_positive(self, sample_face_box):
         padded = sample_face_box.pad(px=10, py=10)
@@ -272,7 +255,6 @@ class TestFaceBox:
         padded = sample_face_box.pad(px=0, py=0)
         assert padded.as_tuple == sample_face_box.as_tuple
 
-    # ── pad_fractional() ─────────────────────────────────────
 
     def test_pad_fractional_10pct(self, sample_face_box):
         # width=200, height=240 → px=20, py=24
@@ -284,7 +266,6 @@ class TestFaceBox:
         padded = sample_face_box.pad_fractional(0.0)
         assert padded.as_tuple == sample_face_box.as_tuple
 
-    # ── clamp() ──────────────────────────────────────────────
 
     def test_clamp_no_change_when_within_bounds(self, sample_face_box):
         clamped = sample_face_box.clamp(img_w=640, img_h=480)
@@ -306,7 +287,6 @@ class TestFaceBox:
         assert clamped.x1 == 0
         assert clamped.y1 == 0
 
-    # ── iou() ────────────────────────────────────────────────
 
     def test_iou_identical_boxes(self, sample_face_box):
         assert sample_face_box.iou(sample_face_box) == pytest.approx(1.0)
@@ -340,7 +320,6 @@ class TestFaceBox:
         b = FaceBox(x1=50, y1=50, x2=50, y2=50, confidence=0.9)  # zero area
         assert a.iou(b) == pytest.approx(0.0)
 
-    # ── crop() ───────────────────────────────────────────────
 
     def test_crop_returns_correct_shape(self, sample_face_box, blank_image):
         crop = sample_face_box.crop(blank_image)
@@ -361,7 +340,6 @@ class TestFaceBox:
         assert crop.shape[0] <= 480
         assert crop.shape[1] <= 640
 
-    # ── repr ─────────────────────────────────────────────────
 
     def test_repr_contains_key_info(self, sample_face_box):
         r = repr(sample_face_box)
@@ -369,10 +347,6 @@ class TestFaceBox:
         assert "0.920" in r or "0.92" in r
         assert "200×240" in r
 
-
-# ============================================================
-# 2. face_box_from_xyxy Tests
-# ============================================================
 
 class TestFaceBoxFromXYXY:
     """Tests for the factory constructor."""
@@ -407,14 +381,9 @@ class TestFaceBoxFromXYXY:
         assert isinstance(fb.y2, int)
 
 
-# ============================================================
-# 3. DetectionResult Tests
-# ============================================================
-
 class TestDetectionResult:
     """Unit tests for the DetectionResult dataclass."""
 
-    # ── Basic properties ─────────────────────────────────────
 
     def test_num_faces(self, multi_face_detection_result):
         assert multi_face_detection_result.num_faces == 3
@@ -451,7 +420,6 @@ class TestDetectionResult:
         lm_list = multi_face_detection_result.landmarks_list
         assert all(lm is None for lm in lm_list)
 
-    # ── filter_by_confidence() ───────────────────────────────
 
     def test_filter_by_confidence_removes_low(self, multi_face_detection_result):
         filtered = multi_face_detection_result.filter_by_confidence(0.75)
@@ -476,7 +444,6 @@ class TestDetectionResult:
         assert filtered.image_width  == multi_face_detection_result.image_width
         assert filtered.image_height == multi_face_detection_result.image_height
 
-    # ── filter_by_min_size() ──────────────────────────────────
 
     def test_filter_by_min_size_removes_small(self, multi_face_detection_result):
         # face at index 0 is 100x100, face at index 1 is 250x300, face 2 is 100x120
@@ -497,7 +464,6 @@ class TestDetectionResult:
         for i, f in enumerate(filtered.faces):
             assert f.face_index == i
 
-    # ── get_face() ────────────────────────────────────────────
 
     def test_get_face_valid_index(self, multi_face_detection_result):
         face = multi_face_detection_result.get_face(1)
@@ -516,7 +482,6 @@ class TestDetectionResult:
         face = multi_face_detection_result.get_face(-1)
         assert face is None
 
-    # ── repr ─────────────────────────────────────────────────
 
     def test_repr(self, sample_detection_result):
         r = repr(sample_detection_result)
@@ -524,10 +489,6 @@ class TestDetectionResult:
         assert "num_faces=1" in r
         assert "640" in r
 
-
-# ============================================================
-# 4. BaseDetector Tests
-# ============================================================
 
 class ConcreteDetector(BaseDetector):
     """
@@ -573,7 +534,6 @@ class TestBaseDetector:
             device="cpu",
         )
 
-    # ── Construction ────────────────────────────────────────
 
     def test_initial_not_loaded(self, detector):
         assert detector.is_loaded is False
@@ -588,7 +548,6 @@ class TestBaseDetector:
     def test_max_faces_stored(self, detector):
         assert detector.max_faces == 10
 
-    # ── load_model() ─────────────────────────────────────────
 
     def test_load_model_sets_is_loaded(self, detector):
         detector.load_model()
@@ -599,7 +558,6 @@ class TestBaseDetector:
         detector.load_model()   # Should not raise
         assert detector.is_loaded is True
 
-    # ── detect() ─────────────────────────────────────────────
 
     def test_detect_requires_loaded(self, detector, blank_image):
         with pytest.raises(RuntimeError, match="not loaded"):
@@ -622,7 +580,6 @@ class TestBaseDetector:
         assert result.image_width == 640
         assert result.image_height == 480
 
-    # ── detect_batch() ───────────────────────────────────────
 
     def test_detect_batch_returns_list(self, detector, blank_image):
         detector.load_model()
@@ -645,7 +602,6 @@ class TestBaseDetector:
         with pytest.raises(RuntimeError):
             detector.detect_batch([blank_image])
 
-    # ── release() ────────────────────────────────────────────
 
     def test_release_resets_is_loaded(self, detector):
         detector.load_model()
@@ -658,7 +614,6 @@ class TestBaseDetector:
         detector.release()
         assert detector._model is None
 
-    # ── Context manager ───────────────────────────────────────
 
     def test_context_manager_loads_on_enter(self, detector):
         assert detector.is_loaded is False
@@ -682,7 +637,6 @@ class TestBaseDetector:
         with detector as d:
             assert d is detector
 
-    # ── _resolve_device() ────────────────────────────────────
 
     def test_resolve_device_cpu_passthrough(self):
         result = BaseDetector._resolve_device("cpu")
