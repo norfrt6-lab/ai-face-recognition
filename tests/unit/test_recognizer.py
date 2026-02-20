@@ -685,8 +685,8 @@ class TestFaceIdentity:
     def test_updated_at_changes_on_add(self, vec_alice):
         fi = FaceIdentity(name="Alice")
         t0 = fi.updated_at
-        time.sleep(0.01)
         fi.add_embedding(vec_alice)
+        # updated_at should be >= the creation time (monotonic)
         assert fi.updated_at >= t0
 
     def test_repr(self):

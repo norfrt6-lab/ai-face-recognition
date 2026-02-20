@@ -131,6 +131,8 @@ def convex_hull_mask(
     Returns:
         uint8 mask (H × W).
     """
+    if landmarks.ndim != 2 or landmarks.shape[1] != 2:
+        raise ValueError(f"convex_hull_mask: landmarks must be (N, 2), got shape {landmarks.shape}")
     mask = np.zeros((height, width), dtype=np.uint8)
     pts = landmarks.astype(np.int32)
     hull = cv2.convexHull(pts)
@@ -258,6 +260,9 @@ def face_bbox_mask(
     bw = x2 - x1
     bh = y2 - y1
 
+    if bw <= 0 or bh <= 0:
+        return np.zeros((frame_height, frame_width), dtype=np.uint8)
+
     # Apply padding
     px1 = max(0, x1 - int(bw * padding_sides))
     px2 = min(frame_width, x2 + int(bw * padding_sides))
@@ -267,6 +272,9 @@ def face_bbox_mask(
     mask = np.zeros((frame_height, frame_width), dtype=np.uint8)
     rw = px2 - px1
     rh = py2 - py1
+
+    if rw <= 0 or rh <= 0:
+        return mask
 
     if shape == "ellipse":
         cx = (px1 + px2) // 2

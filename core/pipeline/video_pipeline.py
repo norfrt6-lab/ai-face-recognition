@@ -268,59 +268,60 @@ class VideoPipeline:
         failed_frames = 0
         frame_idx = 0
 
-        with tqdm(
-            total=total_frames,
-            desc="Processing",
-            unit="frame",
-            dynamic_ncols=True,
-        ) as pbar:
-            while True:
-                ret, frame = cap.read()
-                if not ret:
-                    break
+        try:
+            with tqdm(
+                total=total_frames,
+                desc="Processing",
+                unit="frame",
+                dynamic_ncols=True,
+            ) as pbar:
+                while True:
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
 
-                # Resize to capped resolution if needed
-                if (src_w, src_h) != (out_w, out_h):
-                    frame = cv2.resize(frame, (out_w, out_h), interpolation=cv2.INTER_AREA)
+                    # Resize to capped resolution if needed
+                    if (src_w, src_h) != (out_w, out_h):
+                        frame = cv2.resize(frame, (out_w, out_h), interpolation=cv2.INTER_AREA)
 
-                # Skip frames if configured
-                if config.skip_frames > 0 and (frame_idx % (config.skip_frames + 1)) != 0:
-                    writer.write(frame)
-                    skipped_frames += 1
+                    # Skip frames if configured
+                    if config.skip_frames > 0 and (frame_idx % (config.skip_frames + 1)) != 0:
+                        writer.write(frame)
+                        skipped_frames += 1
+                        frame_idx += 1
+                        pbar.update(1)
+                        continue
+
+                    try:
+                        output_frame = self._process_frame(frame, config, tracker)
+                        processed_frames += 1
+                    except Exception as exc:
+                        logger.warning(f"Frame {frame_idx} failed: {exc} — writing original.")
+                        output_frame = frame
+                        failed_frames += 1
+
+                    # Watermark
+                    if config.watermark:
+                        output_frame = self._add_watermark(output_frame, config.watermark_text)
+
+                    writer.write(output_frame)
                     frame_idx += 1
                     pbar.update(1)
-                    continue
 
-                try:
-                    output_frame = self._process_frame(frame, config, tracker)
-                    processed_frames += 1
-                except Exception as exc:
-                    logger.warning(f"Frame {frame_idx} failed: {exc} — writing original.")
-                    output_frame = frame
-                    failed_frames += 1
+                    # FPS display
+                    elapsed = time.perf_counter() - t_start
+                    fps_now = processed_frames / elapsed if elapsed > 0 else 0.0
+                    pbar.set_postfix(fps=f"{fps_now:.1f}", refresh=False)
 
-                # Watermark
-                if config.watermark:
-                    output_frame = self._add_watermark(output_frame, config.watermark_text)
-
-                writer.write(output_frame)
-                frame_idx += 1
-                pbar.update(1)
-
-                # FPS display
-                elapsed = time.perf_counter() - t_start
-                fps_now = processed_frames / elapsed if elapsed > 0 else 0.0
-                pbar.set_postfix(fps=f"{fps_now:.1f}", refresh=False)
-
-                # Progress callback (Streamlit / UI)
-                if config.progress_callback:
-                    try:
-                        config.progress_callback(frame_idx, total_frames)
-                    except Exception:
-                        pass  # never let callback crash the pipeline
-
-        cap.release()
-        writer.release()
+                    # Progress callback (Streamlit / UI)
+                    if config.progress_callback:
+                        try:
+                            config.progress_callback(frame_idx, total_frames)
+                        except Exception:
+                            pass  # never let callback crash the pipeline
+        finally:
+            cap.release()
+            writer.release()
 
         total_time = time.perf_counter() - t_start
         avg_fps = processed_frames / total_time if total_time > 0 else 0.0
@@ -554,7 +555,7 @@ class VideoPipeline:
                 paste_back=True,
             )
             enh_result = self.enhancer.enhance(enh_req)
-            if enh_result.success:
+            if enh_result.success and enh_result.output_image is not None:
                 # Resize back to original frame dimensions if upscaling changed size
                 h0, w0 = frame.shape[:2]
                 h1, w1 = enh_result.output_image.shape[:2]

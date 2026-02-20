@@ -556,6 +556,14 @@ class FaceDatabase:
             # Build gallery matrix: (M, D)
             names, gallery = self._build_gallery_matrix()
 
+            # Snapshot identity data for "best" strategy re-check so we
+            # don't need to re-acquire the lock later (atomicity).
+            identity_snapshot = (
+                {n: id_.embeddings[:] for n, id_ in self._identities.items()}
+                if self._strategy == "best"
+                else None
+            )
+
         # Build query matrix: (N, D)
         vectors = []
         face_indices = []
@@ -582,17 +590,21 @@ class FaceDatabase:
             # The gallery matrix uses mean embeddings; when strategy is "best",
             # re-check ALL identities (not just the matrix winner) because the
             # best per-embedding similarity may rank differently than the mean.
-            if self._strategy == "best":
-                with self._lock:
-                    rechecked_name = best_name
-                    rechecked_sim = best_sim
-                    for name, identity in self._identities.items():
-                        sim = identity.best_similarity(vectors[i])
+            if identity_snapshot is not None:
+                rechecked_name = best_name
+                rechecked_sim = best_sim
+                for name, embs in identity_snapshot.items():
+                    for ev_raw in embs:
+                        ev = ev_raw.astype(np.float32).flatten()
+                        en = np.linalg.norm(ev)
+                        if en > 1e-10:
+                            ev = ev / en
+                        sim = float(np.dot(vectors[i], ev))
                         if sim > rechecked_sim:
                             rechecked_sim = sim
                             rechecked_name = name
-                    best_sim = rechecked_sim
-                    best_name = rechecked_name
+                best_sim = rechecked_sim
+                best_name = rechecked_name
 
             best_dist = float(np.sqrt(max(0.0, 2.0 * (1.0 - best_sim))))
             is_known = best_sim >= threshold

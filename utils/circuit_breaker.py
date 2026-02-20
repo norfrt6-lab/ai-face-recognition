@@ -52,6 +52,7 @@ class CircuitBreaker:
         self._state = CircuitState.CLOSED
         self._failure_count = 0
         self._last_failure_time: Optional[float] = None
+        self._probe_in_flight = False
         self._lock = threading.Lock()
 
     @property
@@ -74,18 +75,22 @@ class CircuitBreaker:
                 )
                 raise CircuitOpenError(self.name, max(0.0, retry_after))
             if st == CircuitState.HALF_OPEN:
-                # Transition to HALF_OPEN — allow this single probe
-                self._state = CircuitState.HALF_OPEN
+                if self._probe_in_flight:
+                    # Another caller is already probing — reject this one
+                    raise CircuitOpenError(self.name, 1.0)
+                self._probe_in_flight = True
 
     def record_success(self) -> None:
         with self._lock:
             self._failure_count = 0
+            self._probe_in_flight = False
             self._state = CircuitState.CLOSED
 
     def record_failure(self) -> None:
         with self._lock:
             self._failure_count += 1
             self._last_failure_time = time.monotonic()
+            self._probe_in_flight = False
             if (
                 self._failure_count >= self.failure_threshold
                 or self._state == CircuitState.HALF_OPEN
@@ -97,6 +102,7 @@ class CircuitBreaker:
             self._state = CircuitState.CLOSED
             self._failure_count = 0
             self._last_failure_time = None
+            self._probe_in_flight = False
 
     def _effective_state(self) -> CircuitState:
         """Determine real state (transitions OPEN → HALF_OPEN after timeout).

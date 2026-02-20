@@ -372,6 +372,13 @@ class FacePipeline:
 
         # Pick the source face (clamp to valid range)
         src_face_idx = max(0, min(cfg.source_face_index, len(source_detection.faces) - 1))
+        if src_face_idx != cfg.source_face_index:
+            logger.warning(
+                "source_face_index clamped from %d to %d (only %d faces detected)",
+                cfg.source_face_index,
+                src_face_idx,
+                len(source_detection.faces),
+            )
         source_face = source_detection.faces[src_face_idx]
 
         t0 = _timer()
@@ -459,6 +466,13 @@ class FacePipeline:
                 # Swap single target face (clamp to valid range)
                 tgt_face_idx = max(0, min(cfg.target_face_index, len(target_detection.faces) - 1))
                 tgt_face = target_detection.faces[tgt_face_idx]
+                if tgt_face_idx != cfg.target_face_index:
+                    logger.warning(
+                        "target_face_index clamped from %d to %d (only %d faces detected)",
+                        cfg.target_face_index,
+                        tgt_face_idx,
+                        len(target_detection.faces),
+                    )
 
                 single_req = SwapRequest(
                     source_embedding=source_embedding,

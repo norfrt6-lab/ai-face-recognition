@@ -200,10 +200,10 @@ def resize_image(
         return image
     if width is None:
         scale = height / h
-        width = int(w * scale)
+        width = max(1, int(round(w * scale)))
     elif height is None:
         scale = width / w
-        height = int(h * scale)
+        height = max(1, int(round(h * scale)))
 
     return cv2.resize(image, (width, height), interpolation=interpolation)
 

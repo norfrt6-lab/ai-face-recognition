@@ -136,8 +136,15 @@ def _download_file(
     Returns:
         True on success, False on failure.
     """
+    import tempfile
+
     dest_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = dest_path.with_suffix(dest_path.suffix + ".part")
+    # Use a unique temp file to avoid race conditions with concurrent downloads
+    tmp_fd, tmp_name = tempfile.mkstemp(
+        suffix=".part", dir=str(dest_path.parent), prefix=dest_path.stem + "_"
+    )
+    os.close(tmp_fd)
+    tmp_path = Path(tmp_name)
 
     try:
         headers = {"User-Agent": "Mozilla/5.0 (AI-Face-Recognition model downloader)"}
@@ -163,8 +170,8 @@ def _download_file(
                     f.write(chunk)
                     pbar.update(len(chunk))
 
-        # Rename .part → final name only on success
-        tmp_path.rename(dest_path)
+        # Atomically replace — works on Windows even if dest_path exists
+        tmp_path.replace(dest_path)
         return True
 
     except requests.exceptions.RequestException as exc:
