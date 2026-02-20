@@ -251,7 +251,7 @@ def _page_face_swap() -> None:
             label_visibility="collapsed",
         )
         if source_file:
-            st.image(source_file, use_column_width=True)
+            st.image(source_file, width="stretch")
 
     with col2:
         st.subheader("Target Image")
@@ -263,7 +263,7 @@ def _page_face_swap() -> None:
             label_visibility="collapsed",
         )
         if target_file:
-            st.image(target_file, use_column_width=True)
+            st.image(target_file, width="stretch")
 
     with st.expander("⚙️ Swap Options", expanded=False):
         opt_col1, opt_col2, opt_col3 = st.columns(3)
@@ -304,7 +304,7 @@ def _page_face_swap() -> None:
                 value=5,
                 step=1,
             )
-            watermark = st.checkbox("Add Watermark", value=True)
+            watermark = st.checkbox("Add Watermark", value=False)
 
         with opt_col3:
             enhance = st.checkbox(
@@ -386,7 +386,7 @@ def _page_face_swap() -> None:
             if "_raw_bytes" in result:
                 raw = result["_raw_bytes"]
                 st.subheader("Result")
-                st.image(raw, use_column_width=True)
+                st.image(raw, width="stretch")
                 st.download_button(
                     label="⬇️ Download Output",
                     data=raw,
@@ -402,7 +402,7 @@ def _page_face_swap() -> None:
                 if b64:
                     img_bytes = base64.b64decode(b64)
                     st.subheader("Result")
-                    st.image(img_bytes, use_column_width=True)
+                    st.image(img_bytes, width="stretch")
                     st.download_button(
                         label="⬇️ Download Output",
                         data=img_bytes,
@@ -447,7 +447,7 @@ def _page_recognition() -> None:
         key="recog_image",
     )
     if upload:
-        st.image(upload, use_column_width=False, width=500)
+        st.image(upload, width=500)
 
     with st.expander("⚙️ Options", expanded=False):
         opt1, opt2 = st.columns(2)

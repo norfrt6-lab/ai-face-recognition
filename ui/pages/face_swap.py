@@ -339,7 +339,7 @@ def _render_sidebar() -> dict:
         st.subheader("📤 Output")
         watermark = st.toggle(
             "Watermark Output",
-            value=True,
+            value=False,
             help='Embed "AI GENERATED" text on the output image.',
         )
 
@@ -406,7 +406,7 @@ def _display_image(
         try:
             img = Image.open(io.BytesIO(image_bytes))
             w, h = img.size
-            st.image(image_bytes, caption=f"{caption} ({w}×{h})", use_column_width=True)
+            st.image(image_bytes, caption=f"{caption} ({w}×{h})", width="stretch")
         except Exception:
             st.error("Could not display image.")
     else:
@@ -513,7 +513,7 @@ def main() -> None:
         result_info: Optional[dict] = st.session_state.swap_result_info
 
         if result_image is not None:
-            st.image(result_image, caption="Swapped Output", use_column_width=True)
+            st.image(result_image, caption="Swapped Output", width="stretch")
 
             # Download button
             buf = io.BytesIO()
