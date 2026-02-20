@@ -647,7 +647,8 @@ def _page_identities() -> None:
 def _page_about() -> None:
     st.header("ℹ️ About")
 
-    st.markdown("""
+    st.markdown(
+        """
         ## AI Face Recognition & Face Swap
 
         This application is a research and educational demonstration of
@@ -707,7 +708,8 @@ def _page_about() -> None:
         | inswapper_128.onnx | Non-commercial research only |
         | GFPGAN | Apache 2.0 |
         | CodeFormer | S-Lab License (non-commercial) |
-        """)
+        """
+    )
 
 
 def main() -> None:
