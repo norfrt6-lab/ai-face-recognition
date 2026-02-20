@@ -21,10 +21,10 @@ from typing import Optional
 
 import cv2
 import numpy as np
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse, Response
 
-from api.schemas.requests import BlendModeSchema, EnhancerBackendSchema
+from api.schemas.requests import BlendModeSchema, EnhancerBackendSchema, SwapRequest as SwapRequestSchema, swap_form_dep
 from api.schemas.responses import (
     BoundingBox,
     ErrorResponse,
@@ -172,21 +172,10 @@ def _save_output(image: np.ndarray, output_dir: Path, request_id: str) -> str:
 )
 async def swap_faces(
     request:         Request,
-    source_file:     UploadFile  = File(...,  description="Source image — the donor identity."),
-    target_file:     UploadFile  = File(...,  description="Target image — the scene to modify."),
-    blend_mode:      str         = Form(default="poisson"),
-    blend_alpha:     float       = Form(default=1.0,   ge=0.0, le=1.0),
-    mask_feather:    int         = Form(default=20,    ge=0,   le=100),
-    swap_all_faces:  bool        = Form(default=False),
-    max_faces:       int         = Form(default=10,    ge=1,   le=50),
-    source_face_index: int       = Form(default=0,     ge=0),
-    target_face_index: int       = Form(default=0,     ge=0),
-    enhance:         bool        = Form(default=False),
-    enhancer_backend: str        = Form(default="gfpgan"),
-    enhancer_fidelity: float     = Form(default=0.5,  ge=0.0, le=1.0),
-    watermark:       bool        = Form(default=True),
-    return_base64:   bool        = Form(default=False),
-    consent:         bool        = Form(default=False),
+    source_file:     UploadFile         = File(...,  description="Source image — the donor identity."),
+    target_file:     UploadFile         = File(...,  description="Target image — the scene to modify."),
+    params:          SwapRequestSchema  = Depends(swap_form_dep),
+    return_base64:   bool               = Form(default=False),
 ) -> Response:
     """
     Perform a face swap between *source_file* and *target_file*.
@@ -200,20 +189,23 @@ async def swap_faces(
     t_start    = time.perf_counter()
     request_id = str(uuid.uuid4())
 
+    # Unpack validated params
+    blend_mode       = params.blend_mode.value
+    blend_alpha      = params.blend_alpha
+    mask_feather     = params.mask_feather
+    swap_all_faces   = params.swap_all_faces
+    max_faces        = params.max_faces
+    source_face_index = params.source_face_index
+    target_face_index = params.target_face_index
+    enhance          = params.enhance
+    enhancer_fidelity = params.enhancer_fidelity
+    watermark        = params.watermark
+
     logger.info(
         f"[{request_id[:8]}] POST /swap | "
         f"source={source_file.filename!r} target={target_file.filename!r} | "
         f"blend={blend_mode} enhance={enhance} swap_all={swap_all_faces}"
     )
-
-    if not consent:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "consent must be true. "
-                "You must have explicit consent from all individuals involved."
-            ),
-        )
 
     state = request.app.state
     for component in ("detector", "recognizer", "swapper"):
@@ -227,15 +219,7 @@ async def swap_faces(
     source_image = _decode_image(source_file)
     target_image = _decode_image(target_file)
 
-    try:
-        blend_mode_enum = BlendModeSchema(blend_mode)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid blend_mode '{blend_mode}'. "
-                   f"Valid values: {[e.value for e in BlendModeSchema]}",
-        )
-    core_blend_mode = _blend_mode_to_core(blend_mode_enum)
+    core_blend_mode = _blend_mode_to_core(params.blend_mode)
 
     loop = asyncio.get_running_loop()
     executor = getattr(state, "executor", None)
