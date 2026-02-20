@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# ui/app.py
-# ============================================================
 # Streamlit web UI entry point.
 #
 # Pages:
@@ -12,7 +8,6 @@
 #
 # Run with:
 #   streamlit run ui/app.py --server.port 8501
-# ============================================================
 
 from __future__ import annotations
 
@@ -32,9 +27,6 @@ try:
 except Exception:
     pass
 
-# ============================================================
-# Page config (must be first Streamlit call)
-# ============================================================
 
 st.set_page_config(
     page_title="AI Face Recognition & Swap",
@@ -53,17 +45,9 @@ st.set_page_config(
 )
 
 
-# ============================================================
-# Constants / defaults
-# ============================================================
-
 DEFAULT_API_URL = os.getenv("UI_API_BASE_URL", "http://localhost:8000")
 API_TIMEOUT     = 60   # seconds per request
 
-
-# ============================================================
-# Session state helpers
-# ============================================================
 
 def _init_state() -> None:
     """Initialise session-state keys on first run."""
@@ -78,10 +62,6 @@ def _init_state() -> None:
         if key not in st.session_state:
             st.session_state[key] = val
 
-
-# ============================================================
-# API helpers
-# ============================================================
 
 def _api_url() -> str:
     return st.session_state.get("api_url", DEFAULT_API_URL).rstrip("/")
@@ -175,10 +155,6 @@ def _img_to_bytes(pil_img: Image.Image, fmt: str = "PNG") -> bytes:
     return buf.getvalue()
 
 
-# ============================================================
-# Sidebar
-# ============================================================
-
 def _render_sidebar() -> str:
     """Render the sidebar and return the selected page name."""
     with st.sidebar:
@@ -186,7 +162,6 @@ def _render_sidebar() -> str:
         st.caption("Recognition & Swap Pipeline")
         st.divider()
 
-        # ── API URL setting ──────────────────────────────────────────
         with st.expander("⚙️ API Settings", expanded=False):
             new_url = st.text_input(
                 "Backend URL",
@@ -201,8 +176,7 @@ def _render_sidebar() -> str:
             if st.button("🔄 Refresh Health", use_container_width=True):
                 _check_health(force=True)
 
-        # ── API Status indicator ─────────────────────────────────────
-        _check_health()
+            _check_health()
         health_status = st.session_state.api_healthy
 
         if health_status == "ok":
@@ -217,7 +191,6 @@ def _render_sidebar() -> str:
         else:
             st.error("❌ API offline — start the backend.")
 
-        # ── Component health pills ───────────────────────────────────
         components = st.session_state.api_components
         if components:
             st.caption("Components")
@@ -228,7 +201,6 @@ def _render_sidebar() -> str:
 
         st.divider()
 
-        # ── Navigation ───────────────────────────────────────────────
         page = st.radio(
             "Navigate",
             options=[
@@ -246,10 +218,6 @@ def _render_sidebar() -> str:
     return page
 
 
-# ============================================================
-# Page: Face Swap
-# ============================================================
-
 def _page_face_swap() -> None:
     st.header("🔄 Face Swap")
     st.caption(
@@ -258,7 +226,6 @@ def _page_face_swap() -> None:
         "align, and swap the face."
     )
 
-    # ── Consent gate ─────────────────────────────────────────────────
     consent = st.checkbox(
         "✅ I confirm I have **explicit consent** from all individuals "
         "in both images for this face swap.",
@@ -273,7 +240,6 @@ def _page_face_swap() -> None:
 
     st.divider()
 
-    # ── Image uploads ────────────────────────────────────────────────
     col1, col2 = st.columns(2)
 
     with col1:
@@ -300,7 +266,6 @@ def _page_face_swap() -> None:
         if target_file:
             st.image(target_file, use_column_width=True)
 
-    # ── Options ──────────────────────────────────────────────────────
     with st.expander("⚙️ Swap Options", expanded=False):
         opt_col1, opt_col2, opt_col3 = st.columns(3)
 
@@ -361,7 +326,6 @@ def _page_face_swap() -> None:
                 help="Return JSON with base64 image instead of raw download.",
             )
 
-    # ── Run button ───────────────────────────────────────────────────
     st.divider()
     run_disabled = not consent or not source_file or not target_file
     run_clicked  = st.button(
@@ -452,10 +416,6 @@ def _page_face_swap() -> None:
                         for f in faces:
                             st.json(f)
 
-
-# ============================================================
-# Page: Face Recognition
-# ============================================================
 
 def _page_recognition() -> None:
     st.header("🔍 Face Recognition")
@@ -568,17 +528,12 @@ def _page_recognition() -> None:
                             )
 
 
-# ============================================================
-# Page: Identity Database
-# ============================================================
-
 def _page_identities() -> None:
     st.header("📋 Identity Database")
     st.caption("Browse, register, and manage face identities.")
 
     tab_browse, tab_register = st.tabs(["Browse Identities", "Register New Identity"])
 
-    # ── Tab: Browse ──────────────────────────────────────────────────
     with tab_browse:
         st.subheader("Registered Identities")
 
@@ -626,7 +581,6 @@ def _page_identities() -> None:
                         c3.caption(f"ID: `{str(item.get('identity_id', ''))[:8]}…`")
                     st.divider()
 
-    # ── Tab: Register ────────────────────────────────────────────────
     with tab_register:
         st.subheader("Register a New Face Identity")
         st.caption(
@@ -677,10 +631,6 @@ def _page_identities() -> None:
                 if "identities_data" in st.session_state:
                     del st.session_state["identities_data"]
 
-
-# ============================================================
-# Page: About
-# ============================================================
 
 def _page_about() -> None:
     st.header("ℹ️ About")
@@ -749,10 +699,6 @@ def _page_about() -> None:
         """
     )
 
-
-# ============================================================
-# Main
-# ============================================================
 
 def main() -> None:
     _init_state()

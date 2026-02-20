@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# core/swapper/base_swapper.py
-# ============================================================
 # Defines the abstract contract that ALL face swap engines must
 # implement, plus shared data-types used throughout the pipeline.
 #
@@ -14,7 +10,6 @@
 #   SwapRequest   — everything needed to perform one swap operation
 #   SwapResult    — the output of a swap (frame + metadata)
 #   BlendMode     — how the swapped face is composited back
-# ============================================================
 
 from __future__ import annotations
 
@@ -29,11 +24,8 @@ import numpy as np
 
 from core.detector.base_detector import DetectionResult, FaceBox
 from core.recognizer.base_recognizer import FaceEmbedding
+from utils.mask_utils import ellipse_mask
 
-
-# ============================================================
-# Enumerations
-# ============================================================
 
 class BlendMode(Enum):
     """
@@ -73,10 +65,6 @@ class SwapStatus(Enum):
     BLEND_ERROR      = "blend_error"
     MODEL_NOT_LOADED = "model_not_loaded"
 
-
-# ============================================================
-# Data Types
-# ============================================================
 
 @dataclass
 class SwapRequest:
@@ -249,13 +237,10 @@ class BatchSwapResult:
         )
 
 
-# ============================================================
 # Face Alignment Utilities
 # (shared across all swapper implementations)
-# ============================================================
 
-# ArcFace canonical 5-point reference for 112 × 112
-_ARCFACE_REF_112 = np.array(
+ARCFACE_REF_112 = np.array(
     [
         [38.2946, 51.6963],
         [73.5318, 51.5014],
@@ -282,7 +267,7 @@ def get_reference_points(output_size: int = 128) -> np.ndarray:
         (5, 2) float32 array of reference landmark positions.
     """
     scale = output_size / 112.0
-    return (_ARCFACE_REF_112 * scale).astype(np.float32)
+    return (ARCFACE_REF_112 * scale).astype(np.float32)
 
 
 def estimate_norm(
@@ -398,14 +383,11 @@ def paste_back(
     H, W = original.shape[:2]
     crop_size = swapped_crop.shape[0]
 
-    # ── Build the default mask if none provided ─────────────────────
     if blend_mask is None:
         blend_mask = _make_crop_mask(crop_size, feather)
 
-    # ── Invert affine: canonical → source image space ───────────────
     inv_M = cv2.invertAffineTransform(affine_matrix)
 
-    # ── Warp swapped crop back to full-frame space ───────────────────
     warped_face = cv2.warpAffine(
         swapped_crop,
         inv_M,
@@ -414,7 +396,6 @@ def paste_back(
         borderMode=cv2.BORDER_REPLICATE,
     )
 
-    # ── Warp the mask into the same space ───────────────────────────
     warped_mask = cv2.warpAffine(
         blend_mask,
         inv_M,
@@ -423,7 +404,6 @@ def paste_back(
         borderValue=0,
     )
 
-    # ── Alpha blend ─────────────────────────────────────────────────
     alpha = warped_mask.astype(np.float32) / 255.0
     alpha = alpha[:, :, np.newaxis]   # (H, W, 1)
 
@@ -500,34 +480,9 @@ def paste_back_poisson(
 
 
 def _make_crop_mask(size: int, feather: int = 20) -> np.ndarray:
-    """
-    Create a soft elliptical mask for a square crop of *size* × *size*.
+    """Soft elliptical mask for a square crop. Delegates to mask_utils.ellipse_mask."""
+    return ellipse_mask(size, size, feather=feather)
 
-    Args:
-        size:    Square canvas dimension in pixels.
-        feather: Gaussian blur radius for edge softening.
-
-    Returns:
-        (size, size) uint8 mask — white inside the ellipse, feathered edges.
-    """
-    mask = np.zeros((size, size), dtype=np.uint8)
-    cx, cy = size // 2, size // 2
-    ax = int(size * 0.45)
-    ay = int(size * 0.48)
-    cv2.ellipse(mask, (cx, cy), (ax, ay), 0, 0, 360, 255, -1)
-
-    if feather > 0:
-        ksize = max(3, feather * 2 + 1)
-        if ksize % 2 == 0:
-            ksize += 1
-        mask = cv2.GaussianBlur(mask, (ksize, ksize), feather)
-
-    return mask
-
-
-# ============================================================
-# Abstract Base Swapper
-# ============================================================
 
 class BaseSwapper(ABC):
     """
@@ -632,6 +587,7 @@ class BaseSwapper(ABC):
         blend_alpha: Optional[float] = None,
         mask_feather: Optional[int] = None,
         max_faces: Optional[int] = None,
+        metadata: Optional[dict] = None,
     ) -> BatchSwapResult:
         """
         Swap *source_embedding* into every detected face in *target_image*.
@@ -648,6 +604,7 @@ class BaseSwapper(ABC):
             blend_alpha:         Override default alpha for this call.
             mask_feather:        Override default feather for this call.
             max_faces:           Cap on how many faces to swap (None = all).
+            metadata:            Optional dict forwarded to each SwapRequest.
 
         Returns:
             ``BatchSwapResult`` with the final composited frame and
@@ -673,6 +630,7 @@ class BaseSwapper(ABC):
                 blend_mode=blend_mode if blend_mode is not None else self.blend_mode,
                 blend_alpha=blend_alpha if blend_alpha is not None else self.blend_alpha,
                 mask_feather=mask_feather if mask_feather is not None else self.mask_feather,
+                metadata=metadata or {},
             )
             result = self.swap(req)
             results.append(result)

@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# core/pipeline/video_pipeline.py
-# ============================================================
 # Frame-by-frame video processing pipeline.
 #
 # Orchestrates the full detect → recognise → swap → enhance
@@ -15,7 +11,6 @@
 #   - Thread-safe frame queue for smooth I/O
 #   - Progress callbacks for UI integration (Streamlit)
 #   - Source/target mode: one source identity → all target faces
-# ============================================================
 
 from __future__ import annotations
 
@@ -35,14 +30,11 @@ from core.recognizer.base_recognizer import BaseRecognizer, FaceEmbedding
 from core.swapper.base_swapper import BaseSwapper, BlendMode, SwapRequest
 from core.swapper.inswapper import InSwapper
 from core.enhancer.base_enhancer import BaseEnhancer, EnhancementRequest
+from core.tracker.iou_tracker import IoUTracker
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-
-# ============================================================
-# Data Types
-# ============================================================
 
 @dataclass
 class VideoProcessingConfig:
@@ -95,6 +87,9 @@ class VideoProcessingConfig:
     max_resolution:    Optional[tuple]  = None   # (w, h)
     watermark:         bool       = True
     watermark_text:    str        = "AI GENERATED"
+    enable_tracking:   bool       = True
+    tracking_iou:      float      = 0.3
+    tracking_max_age:  int        = 5
     save_intermediate: bool       = False
     progress_callback: Optional[Callable[[int, int], None]] = field(
         default=None, repr=False
@@ -142,10 +137,6 @@ class VideoProcessingResult:
             f"time={self.total_time_s:.1f}s)"
         )
 
-
-# ============================================================
-# Video Pipeline
-# ============================================================
 
 class VideoPipeline:
     """
@@ -229,7 +220,6 @@ class VideoPipeline:
         out_path = Path(output_path)
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # ── Open source video ────────────────────────────────────────
         cap = cv2.VideoCapture(str(source_path))
         if not cap.isOpened():
             raise RuntimeError(f"Cannot open video: {source_video}")
@@ -250,7 +240,6 @@ class VideoPipeline:
             f"skip_frames={config.skip_frames}"
         )
 
-        # ── Open VideoWriter ─────────────────────────────────────────
         fourcc = cv2.VideoWriter_fourcc(*config.output_codec)
         # Write to a temp file first so we can merge audio after
         temp_video_path = str(out_path.with_suffix(f".tmp_noaudio{out_path.suffix}"))
@@ -267,7 +256,14 @@ class VideoPipeline:
                 f"(codec={config.output_codec!r}, size={out_w}x{out_h})"
             )
 
-        # ── Process frames ───────────────────────────────────────────
+        # Initialise face tracker for temporal consistency (local to this run)
+        tracker: Optional[IoUTracker] = None
+        if config.enable_tracking:
+            tracker = IoUTracker(
+                iou_threshold=config.tracking_iou,
+                max_age=config.tracking_max_age,
+            )
+
         t_start          = time.perf_counter()
         processed_frames = 0
         skipped_frames   = 0
@@ -297,9 +293,8 @@ class VideoPipeline:
                     pbar.update(1)
                     continue
 
-                # ── Process this frame ───────────────────────────────
                 try:
-                    output_frame = self._process_frame(frame, config)
+                    output_frame = self._process_frame(frame, config, tracker)
                     processed_frames += 1
                 except Exception as exc:
                     logger.warning(
@@ -343,7 +338,6 @@ class VideoPipeline:
             f"time={total_time:.1f}s avg_fps={avg_fps:.1f}"
         )
 
-        # ── Merge audio ──────────────────────────────────────────────
         final_output = str(out_path)
         if config.preserve_audio:
             merged = self._merge_audio(
@@ -418,6 +412,13 @@ class VideoPipeline:
                 str(out_path), fourcc, src_fps, (out_w, out_h)
             )
 
+        tracker: Optional[IoUTracker] = None
+        if config.enable_tracking:
+            tracker = IoUTracker(
+                iou_threshold=config.tracking_iou,
+                max_age=config.tracking_max_age,
+            )
+
         t_start          = time.perf_counter()
         processed_frames = 0
         failed_frames    = 0
@@ -438,7 +439,7 @@ class VideoPipeline:
                     frame = cv2.resize(frame, (out_w, out_h))
 
                 try:
-                    output_frame = self._process_frame(frame, config)
+                    output_frame = self._process_frame(frame, config, tracker)
                     processed_frames += 1
                 except Exception as exc:
                     logger.debug(f"Webcam frame {frame_idx} error: {exc}")
@@ -494,26 +495,40 @@ class VideoPipeline:
 
     def _process_frame(
         self,
-        frame:  np.ndarray,
-        config: VideoProcessingConfig,
+        frame:   np.ndarray,
+        config:  VideoProcessingConfig,
+        tracker: Optional[IoUTracker] = None,
     ) -> np.ndarray:
         """
         Run detect → swap → (optional enhance) on a single BGR frame.
 
         Args:
-            frame:  Input BGR frame.
-            config: Pipeline configuration.
+            frame:   Input BGR frame.
+            config:  Pipeline configuration.
+            tracker: Optional IoU tracker for temporal consistency.
 
         Returns:
             Processed BGR frame (same shape as input).
         """
-        # ── Detect faces ─────────────────────────────────────────────
         detection: DetectionResult = self.detector.detect(frame)
 
         if detection.is_empty:
+            if tracker is not None:
+                tracker.update([])  # age existing tracks
             return frame   # no faces → return unmodified
 
-        # ── Swap ─────────────────────────────────────────────────────
+        # Assign persistent track IDs across frames
+        if tracker is not None:
+            tracked = tracker.update(detection.faces)
+            detection = DetectionResult(
+                faces=tracked,
+                image_width=detection.image_width,
+                image_height=detection.image_height,
+                inference_time_ms=detection.inference_time_ms,
+                frame_index=detection.frame_index,
+                metadata=detection.metadata,
+            )
+
         if config.swap_all_faces:
             batch = self.swapper.swap_all(
                 source_embedding=config.source_embedding,
@@ -540,7 +555,6 @@ class VideoPipeline:
             result = self.swapper.swap(req)
             output_frame = result.output_image if result.success else frame
 
-        # ── Enhance ──────────────────────────────────────────────────
         if config.enhance and self.enhancer is not None and self.enhancer.is_loaded:
             enh_req = EnhancementRequest(
                 image=output_frame,
@@ -590,7 +604,10 @@ class VideoPipeline:
 
         max_w, max_h = max_res
         scale = min(max_w / w, max_h / h, 1.0)
-        return (int(w * scale), int(h * scale))
+        # Round down to even numbers — many codecs (H.264) require even dims
+        new_w = int(w * scale) & ~1
+        new_h = int(h * scale) & ~1
+        return (max(2, new_w), max(2, new_h))
 
     @staticmethod
     def _add_watermark(

@@ -1,8 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap - Logger
-# Loguru-based structured logging setup
-# ============================================================
-
 from __future__ import annotations
 
 import sys
@@ -172,4 +167,4 @@ def setup_from_settings() -> None:
 # ------------------------------------------------------------------ #
 
 if not _configured:
-    setup_logger(level="DEBUG", colorize=True)
+    setup_logger(level="INFO", colorize=True)

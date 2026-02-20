@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# core/recognizer/face_database.py
-# ============================================================
 # Persistent face identity store with cosine similarity search.
 #
 # Features:
@@ -13,7 +9,6 @@
 #   - Identity management (add, remove, rename, list, count)
 #   - Bulk import / export helpers
 #   - Statistics and diagnostics
-# ============================================================
 
 from __future__ import annotations
 
@@ -37,10 +32,6 @@ from core.recognizer.base_recognizer import (
     cosine_similarity_matrix,
 )
 
-
-# ============================================================
-# Data Types
-# ============================================================
 
 @dataclass
 class FaceIdentity:
@@ -182,10 +173,6 @@ class SearchResult:
         )
 
 
-# ============================================================
-# FaceDatabase
-# ============================================================
-
 class FaceDatabase:
     """
     Thread-safe face identity store with cosine similarity search.
@@ -263,6 +250,7 @@ class FaceDatabase:
         *,
         metadata: Optional[dict] = None,
         overwrite: bool = False,
+        append_only: bool = False,
     ) -> FaceIdentity:
         """
         Register a face embedding under the given identity name.
@@ -271,18 +259,21 @@ class FaceDatabase:
         If *overwrite* is True, any existing embeddings are cleared first.
 
         Args:
-            name:       Identity label (e.g. person's name / employee ID).
-            embedding:  FaceEmbedding object or raw (D,) numpy array.
-            metadata:   Optional dict to attach to the identity record
-                        (e.g. {'source': 'photo_2024.jpg'}).
-            overwrite:  If True, replace all existing embeddings for
-                        *name* with just this one.
+            name:         Identity label (e.g. person's name / employee ID).
+            embedding:    FaceEmbedding object or raw (D,) numpy array.
+            metadata:     Optional dict to attach to the identity record
+                          (e.g. {'source': 'photo_2024.jpg'}).
+            overwrite:    If True, replace all existing embeddings for
+                          *name* with just this one.
+            append_only:  If True, the identity must already exist.
+                          Raises KeyError if it does not.
 
         Returns:
             The FaceIdentity record (created or updated).
 
         Raises:
             ValueError: If *name* is empty or the embedding vector is invalid.
+            KeyError:   If *append_only* is True and the identity does not exist.
         """
         name = name.strip()
         if not name:
@@ -292,6 +283,9 @@ class FaceDatabase:
         self._validate_vector(vector)
 
         with self._lock:
+            if append_only and name not in self._identities:
+                raise KeyError(f"Identity '{name}' not found in database.")
+
             if name not in self._identities or overwrite:
                 identity = FaceIdentity(
                     name=name,

@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# core/enhancer/codeformer_enhancer.py
-# ============================================================
 # CodeFormer face enhancement implementation.
 #
 # CodeFormer is a robust blind face restoration algorithm based
@@ -23,7 +19,6 @@
 #   4. Run CodeFormer inference with fidelity_weight
 #   5. Paste enhanced crops back into the original frame
 #   6. Apply upscaling if requested
-# ============================================================
 
 from __future__ import annotations
 
@@ -49,10 +44,6 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-
-# ============================================================
-# CodeFormerEnhancer
-# ============================================================
 
 class CodeFormerEnhancer(BaseEnhancer):
     """
@@ -137,7 +128,6 @@ class CodeFormerEnhancer(BaseEnhancer):
                 "Download it with: python utils/download_models.py --minimum"
             )
 
-        # ── Validate required imports ───────────────────────────────
         self._check_imports()
 
         resolved_device = self._resolve_device()
@@ -151,7 +141,6 @@ class CodeFormerEnhancer(BaseEnhancer):
             from basicsr.utils.registry import ARCH_REGISTRY  # noqa: PLC0415
             from facexlib.utils.face_restoration_helper import FaceRestoreHelper  # noqa: PLC0415
 
-            # ── Build model architecture ────────────────────────────
             # CodeFormer is registered in BasicSR's architecture registry
             net = ARCH_REGISTRY.get("CodeFormer")(
                 dim_embd=512,
@@ -162,10 +151,10 @@ class CodeFormerEnhancer(BaseEnhancer):
             )
             net = net.to(resolved_device)
 
-            # ── Load checkpoint ─────────────────────────────────────
             checkpoint = torch.load(
                 str(path),
                 map_location=torch.device(resolved_device),
+                weights_only=True,
             )
             # Checkpoint may be nested under 'params_ema' or 'params'
             state_dict = (
@@ -178,7 +167,6 @@ class CodeFormerEnhancer(BaseEnhancer):
 
             self._codeformer_net = net
 
-            # ── Initialise face restoration helper ─────────────────
             self._face_helper = FaceRestoreHelper(
                 upscale_factor=self.upscale,
                 face_size=self._MODEL_RESOLUTION,
@@ -189,7 +177,6 @@ class CodeFormerEnhancer(BaseEnhancer):
                 device=torch.device(resolved_device),
             )
 
-            # ── Optional background upsampler ───────────────────────
             if self.bg_enhance:
                 self._bg_upsampler_obj = self._load_bg_upsampler(resolved_device)
 
@@ -249,7 +236,6 @@ class CodeFormerEnhancer(BaseEnhancer):
             resolved_device = self._resolve_device()
             device = torch.device(resolved_device)
 
-            # ── Prepare face restoration helper ─────────────────────
             helper = self._face_helper
             helper.clean_all()
             helper.read_image(request.image)
@@ -268,7 +254,6 @@ class CodeFormerEnhancer(BaseEnhancer):
                     t0,
                 )
 
-            # ── Inference loop ───────────────────────────────────────
             t_inf  = self._timer()
             face_crops: List[np.ndarray] = []
 
@@ -289,7 +274,6 @@ class CodeFormerEnhancer(BaseEnhancer):
 
             inference_time = self._timer() - t_inf
 
-            # ── Background upsampling (optional) ────────────────────
             if self.bg_enhance and self._bg_upsampler_obj is not None:
                 helper.get_inverse_affine(None)
                 output_image = helper.paste_faces_to_input_image(
@@ -321,7 +305,6 @@ class CodeFormerEnhancer(BaseEnhancer):
                 t0,
             )
 
-        # ── Statistics ───────────────────────────────────────────────
         with self._stats_lock:
             self._total_calls     += 1
             self._total_inference += inference_time

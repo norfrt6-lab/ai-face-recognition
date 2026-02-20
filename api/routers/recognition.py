@@ -1,27 +1,17 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# api/routers/recognition.py
-# ============================================================
-# Endpoints:
-#   POST /api/v1/recognize  — detect + match faces in an image
-#   POST /api/v1/register   — register a new face identity
-#   GET  /api/v1/identities — list registered identities
-#   GET  /api/v1/identities/{identity_id} — get one identity
-#   DELETE /api/v1/identities/{identity_id} — remove identity
-#   PATCH  /api/v1/identities/{identity_id} — rename identity
-# ============================================================
-
 from __future__ import annotations
 
+import asyncio
 import math
 import time
 import uuid
+from functools import partial
 from typing import List, Optional
 
 import cv2
 import numpy as np
 from fastapi import (
     APIRouter,
+    Depends,
     File,
     Form,
     HTTPException,
@@ -30,9 +20,12 @@ from fastapi import (
     status,
 )
 
-# Note: RecognizeRequest, RegisterRequest etc. are defined in schemas/requests.py
-# with Pydantic validators, but the route handlers use Form() parameters directly
-# for multipart/form-data support. The schemas serve as documentation only.
+from api.schemas.requests import (
+    RecognizeRequest as RecognizeRequestSchema,
+    RegisterRequest as RegisterRequestSchema,
+    recognize_form_dep,
+    register_form_dep,
+)
 from api.schemas.responses import (
     BoundingBox,
     ErrorResponse,
@@ -43,36 +36,63 @@ from api.schemas.responses import (
     RecognizedFace,
     RegisterResponse,
 )
+from api.metrics import RECOGNITION_COUNT
+from utils.circuit_breaker import CircuitBreaker, CircuitOpenError
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 router = APIRouter(tags=["Recognition"])
 
+_detector_breaker = CircuitBreaker("detector", failure_threshold=5, recovery_timeout=30.0)
+_recognizer_breaker = CircuitBreaker("recognizer", failure_threshold=5, recovery_timeout=30.0)
 
-# ============================================================
-# Helpers
-# ============================================================
-
-_MAX_IMAGE_DIMENSION = 4096
+# Maximum seconds for a single model inference call before timeout
+_INFERENCE_TIMEOUT: float = 60.0
 
 
-def _decode_upload(upload: UploadFile) -> np.ndarray:
-    """
-    Decode an uploaded image file into a BGR numpy array.
-
-    Args:
-        upload: FastAPI UploadFile from a multipart/form-data request.
-
-    Returns:
-        (H, W, 3) BGR uint8 numpy array.
-
-    Raises:
-        HTTPException 400: If the file cannot be decoded as an image
-            or exceeds the maximum allowed dimensions.
-    """
+def _get_upload_limits() -> tuple[int, int, int]:
+    """Return (max_bytes, max_dim, min_dim) from settings or defaults."""
     try:
-        raw = upload.file.read()
+        from config.settings import settings  # noqa: PLC0415
+        return (
+            settings.api.max_upload_bytes,
+            settings.api.max_image_dimension,
+            settings.api.min_image_dimension,
+        )
+    except Exception:
+        return 10 * 1024 * 1024, 4096, 10
+
+
+async def _decode_upload(upload: UploadFile) -> np.ndarray:
+    """Decode an uploaded image file into a BGR numpy array."""
+    max_bytes, max_dim, min_dim = _get_upload_limits()
+
+    # Pre-check Content-Length before reading full body into memory
+    claimed_size = upload.size
+    if claimed_size is not None and claimed_size > max_bytes:
+        mb = max_bytes / (1024 * 1024)
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large ({claimed_size} bytes). Maximum: {mb:.0f} MB.",
+        )
+
+    try:
+        raw = await upload.read()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot read upload '{upload.filename}': {exc}",
+        )
+
+    if len(raw) > max_bytes:
+        mb = max_bytes / (1024 * 1024)
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large ({len(raw)} bytes). Maximum: {mb:.0f} MB.",
+        )
+
+    try:
         arr = np.frombuffer(raw, dtype=np.uint8)
         img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
         if img is None:
@@ -84,10 +104,15 @@ def _decode_upload(upload: UploadFile) -> np.ndarray:
         )
 
     h, w = img.shape[:2]
-    if h > _MAX_IMAGE_DIMENSION or w > _MAX_IMAGE_DIMENSION:
+    if h > max_dim or w > max_dim:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Image too large: {w}x{h}. Maximum dimension: {_MAX_IMAGE_DIMENSION}px.",
+            detail=f"Image too large: {w}x{h}. Maximum dimension: {max_dim}px.",
+        )
+    if h < min_dim or w < min_dim:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Image too small: {w}x{h}. Minimum dimension: {min_dim}px.",
         )
 
     return img
@@ -137,10 +162,6 @@ def _check_components(state, *names: str) -> None:
             )
 
 
-# ============================================================
-# POST /recognize
-# ============================================================
-
 @router.post(
     "/recognize",
     response_model=RecognizeResponse,
@@ -161,12 +182,8 @@ def _check_components(state, *names: str) -> None:
 )
 async def recognize(
     request:     Request,
-    image:       UploadFile        = File(..., description="Image file (JPEG / PNG / WebP / BMP)."),
-    top_k:       int               = Form(default=1,    ge=1, le=20),
-    similarity_threshold: Optional[float] = Form(default=None, ge=0.0, le=1.0),
-    return_attributes:    bool     = Form(default=False),
-    return_embeddings:    bool     = Form(default=False),
-    consent:     bool              = Form(default=False),
+    image:       UploadFile                = File(..., description="Image file (JPEG / PNG / WebP / BMP)."),
+    params:      RecognizeRequestSchema    = Depends(recognize_form_dep),
 ) -> RecognizeResponse:
     """
     Detect all faces in *image* and attempt to match each one against
@@ -185,17 +202,11 @@ async def recognize(
     request_id = str(uuid.uuid4())
     logger.info(f"[{request_id[:8]}] POST /recognize — file={image.filename!r}")
 
-    # ── Ethics gate ──────────────────────────────────────────────────
-    if not consent:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "consent must be true. "
-                "You must have explicit consent from all individuals in the image."
-            ),
-        )
+    # Unpack validated params
+    top_k = params.top_k
+    similarity_threshold = params.similarity_threshold
+    return_attributes = params.return_attributes
 
-    # ── Component guard ──────────────────────────────────────────────
     _check_components(request.app.state, "detector", "recognizer")
 
     state      = request.app.state
@@ -203,14 +214,33 @@ async def recognize(
     recognizer = state.recognizer
     face_db    = getattr(state, "face_database", None)
 
-    # ── Decode image ─────────────────────────────────────────────────
-    img = _decode_upload(image)
+    img = await _decode_upload(image)
     h, w = img.shape[:2]
 
-    # ── Detect faces ─────────────────────────────────────────────────
+    loop = asyncio.get_running_loop()
+    executor = getattr(state, "executor", None)
+
     try:
-        detection = detector.detect(img)
+        _detector_breaker.check()
+        detection = await asyncio.wait_for(
+            loop.run_in_executor(executor, detector.detect, img),
+            timeout=_INFERENCE_TIMEOUT,
+        )
+        _detector_breaker.record_success()
+    except CircuitOpenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        )
+    except asyncio.TimeoutError:
+        _detector_breaker.record_failure()
+        logger.error(f"[{request_id[:8]}] Detection timed out after {_INFERENCE_TIMEOUT}s")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=f"Face detection timed out after {_INFERENCE_TIMEOUT:.0f}s.",
+        )
     except Exception as exc:
+        _detector_breaker.record_failure()
         logger.error(f"[{request_id[:8]}] Detection error: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -227,7 +257,6 @@ async def recognize(
             image_height=h,
         )
 
-    # ── Resolve similarity threshold ─────────────────────────────────
     if similarity_threshold is not None:
         thresh = similarity_threshold
     else:
@@ -237,16 +266,32 @@ async def recognize(
         except Exception:
             thresh = 0.45
 
-    # ── Embed + match each face ──────────────────────────────────────
     recognized_faces: List[RecognizedFace] = []
     num_recognized = 0
 
     for face in detection.faces:
         # Extract embedding
         try:
+            _recognizer_breaker.check()
             face_bbox = (int(face.x1), int(face.y1), int(face.x2), int(face.y2))
-            embedding = recognizer.get_embedding(img, bbox=face_bbox)
+            embedding = await asyncio.wait_for(
+                loop.run_in_executor(
+                    executor,
+                    partial(recognizer.get_embedding, img, bbox=face_bbox),
+                ),
+                timeout=_INFERENCE_TIMEOUT,
+            )
+            _recognizer_breaker.record_success()
+        except CircuitOpenError:
+            embedding = None
+        except asyncio.TimeoutError:
+            _recognizer_breaker.record_failure()
+            logger.warning(
+                f"[{request_id[:8]}] Embedding timed out for face {face.face_index}"
+            )
+            embedding = None
         except Exception as exc:
+            _recognizer_breaker.record_failure()
             logger.warning(
                 f"[{request_id[:8]}] Embedding failed for face {face.face_index}: {exc}"
             )
@@ -256,7 +301,13 @@ async def recognize(
         attributes: Optional[FaceAttributeResponse] = None
         if return_attributes and embedding is not None:
             try:
-                attr = recognizer.get_attributes(img, bbox=face_bbox)
+                attr = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        executor,
+                        partial(recognizer.get_attributes, img, bbox=face_bbox),
+                    ),
+                    timeout=_INFERENCE_TIMEOUT,
+                )
                 if attr:
                     attributes = FaceAttributeResponse(
                         age=attr.age,
@@ -326,6 +377,7 @@ async def recognize(
             )
         )
 
+    RECOGNITION_COUNT.inc()
     inference_ms = (time.perf_counter() - t_start) * 1000
     logger.info(
         f"[{request_id[:8]}] recognize done | "
@@ -342,10 +394,6 @@ async def recognize(
         image_height=h,
     )
 
-
-# ============================================================
-# POST /register
-# ============================================================
 
 @router.post(
     "/register",
@@ -365,11 +413,8 @@ async def recognize(
 )
 async def register(
     request:     Request,
-    image:       UploadFile     = File(..., description="Face image (JPEG / PNG / WebP / BMP)."),
-    name:        str            = Form(...,         min_length=1, max_length=128),
-    identity_id: Optional[str]  = Form(default=None),
-    overwrite:   bool           = Form(default=False),
-    consent:     bool           = Form(default=False),
+    image:       UploadFile              = File(..., description="Face image (JPEG / PNG / WebP / BMP)."),
+    params:      RegisterRequestSchema   = Depends(register_form_dep),
 ) -> RegisterResponse:
     """
     Register a face identity in the database.
@@ -384,29 +429,17 @@ async def register(
     """
     t_start    = time.perf_counter()
     request_id = str(uuid.uuid4())
+
+    # Unpack validated params
+    name        = params.name
+    identity_id = params.identity_id
+    overwrite   = params.overwrite
+
     logger.info(
         f"[{request_id[:8]}] POST /register — "
         f"name={name!r} identity_id={identity_id!r}"
     )
 
-    # ── Ethics gate ──────────────────────────────────────────────────
-    if not consent:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "consent must be true. "
-                "You must have explicit consent from the person being registered."
-            ),
-        )
-
-    # Name validation
-    if "/" in name or "\\" in name:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="name must not contain path separators.",
-        )
-
-    # ── Component guard ──────────────────────────────────────────────
     _check_components(request.app.state, "detector", "recognizer")
 
     state      = request.app.state
@@ -420,13 +453,31 @@ async def register(
             detail="Face database is not initialised.",
         )
 
-    # ── Decode image ─────────────────────────────────────────────────
-    img = _decode_upload(image)
+    img = await _decode_upload(image)
 
-    # ── Detect faces ─────────────────────────────────────────────────
+    loop = asyncio.get_running_loop()
+    executor = getattr(state, "executor", None)
+
     try:
-        detection = detector.detect(img)
+        _detector_breaker.check()
+        detection = await asyncio.wait_for(
+            loop.run_in_executor(executor, detector.detect, img),
+            timeout=_INFERENCE_TIMEOUT,
+        )
+        _detector_breaker.record_success()
+    except CircuitOpenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        )
+    except asyncio.TimeoutError:
+        _detector_breaker.record_failure()
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=f"Face detection timed out after {_INFERENCE_TIMEOUT:.0f}s.",
+        )
     except Exception as exc:
+        _detector_breaker.record_failure()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Face detection failed: {exc}",
@@ -441,11 +492,30 @@ async def register(
     # Use the best (highest confidence) face for registration
     best_face = detection.best_face
 
-    # ── Extract embedding ────────────────────────────────────────────
     try:
+        _recognizer_breaker.check()
         best_bbox = (int(best_face.x1), int(best_face.y1), int(best_face.x2), int(best_face.y2))
-        embedding = recognizer.get_embedding(img, bbox=best_bbox)
+        embedding = await asyncio.wait_for(
+            loop.run_in_executor(
+                executor,
+                partial(recognizer.get_embedding, img, bbox=best_bbox),
+            ),
+            timeout=_INFERENCE_TIMEOUT,
+        )
+        _recognizer_breaker.record_success()
+    except CircuitOpenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        )
+    except asyncio.TimeoutError:
+        _recognizer_breaker.record_failure()
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=f"Embedding extraction timed out after {_INFERENCE_TIMEOUT:.0f}s.",
+        )
     except Exception as exc:
+        _recognizer_breaker.record_failure()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to extract face embedding: {exc}",
@@ -460,17 +530,12 @@ async def register(
             ),
         )
 
-    # ── Register in database ─────────────────────────────────────────
     try:
         if identity_id and not overwrite:
-            # Append embedding to existing identity (looked up by name)
-            existing = face_db.get_identity(name)
-            if existing is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Identity '{name}' not found in database.",
-                )
-            result = face_db.register(name=name, embedding=embedding)
+            # Append embedding to existing identity — atomic check inside register()
+            result = face_db.register(
+                name=name, embedding=embedding, append_only=True,
+            )
             result_id = result.identity_id
             total_emb = result.num_embeddings
             added = 1
@@ -493,6 +558,11 @@ async def register(
             msg = f"New identity '{name}' registered successfully."
     except HTTPException:
         raise
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
     except Exception as exc:
         logger.error(f"[{request_id[:8]}] DB register error: {exc}")
         raise HTTPException(
@@ -517,10 +587,6 @@ async def register(
     )
 
 
-# ============================================================
-# GET /identities
-# ============================================================
-
 @router.get(
     "/identities",
     summary="List registered identities",
@@ -535,6 +601,9 @@ async def list_identities(
     page_size:   int            = 50,
     name_filter: Optional[str]  = None,
 ) -> dict:
+    # Validate pagination bounds
+    page = max(1, page)
+    page_size = max(1, min(page_size, 200))
     """
     Return a paginated list of registered face identities.
 
@@ -593,10 +662,6 @@ async def list_identities(
     }
 
 
-# ============================================================
-# GET /identities/{identity_id}
-# ============================================================
-
 @router.get(
     "/identities/{identity_id}",
     summary="Get a single registered identity",
@@ -638,10 +703,6 @@ async def get_identity(request: Request, identity_id: str) -> dict:
         "metadata":        identity.metadata,
     }
 
-
-# ============================================================
-# DELETE /identities/{identity_id}
-# ============================================================
 
 @router.delete(
     "/identities/{identity_id}",
@@ -694,10 +755,6 @@ async def delete_identity(
     logger.info(f"Identity deleted: {identity_id!r}")
     return {"deleted": True, "identity_id": identity_id}
 
-
-# ============================================================
-# PATCH /identities/{identity_id}
-# ============================================================
 
 @router.patch(
     "/identities/{identity_id}",

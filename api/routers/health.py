@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# api/routers/health.py
-# ============================================================
 # GET /api/v1/health — liveness + readiness check endpoint.
 #
 # Returns overall API status plus per-component health for
@@ -13,7 +9,6 @@
 #   - Kubernetes readiness / liveness probes
 #   - docker-compose depends_on healthcheck
 #   - Streamlit UI status indicator
-# ============================================================
 
 from __future__ import annotations
 
@@ -21,6 +16,7 @@ import time
 from typing import Dict
 
 from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 from api.schemas.responses import (
     ComponentHealth,
@@ -36,10 +32,6 @@ router = APIRouter(tags=["Health"])
 # Module-level start time for uptime calculation
 _START_TIME: float = time.perf_counter()
 
-
-# ============================================================
-# Endpoint
-# ============================================================
 
 @router.get(
     "/health",
@@ -69,7 +61,6 @@ async def health_check(request: Request) -> HealthResponse:
     """
     uptime = (time.perf_counter() - _START_TIME)
 
-    # ── Collect per-component health ────────────────────────────────
     components: Dict[str, ComponentHealth] = {}
     overall = ComponentStatus.OK
 
@@ -116,7 +107,6 @@ async def health_check(request: Request) -> HealthResponse:
     ):
         overall = ComponentStatus.DEGRADED
 
-    # ── App metadata ─────────────────────────────────────────────────
     try:
         from config.settings import settings  # noqa: PLC0415
         version     = settings.app_version
@@ -127,7 +117,7 @@ async def health_check(request: Request) -> HealthResponse:
 
     logger.debug(f"Health check: overall={overall.value} uptime={uptime:.1f}s")
 
-    return HealthResponse(
+    response = HealthResponse(
         status=overall,
         version=version,
         environment=environment,
@@ -135,10 +125,9 @@ async def health_check(request: Request) -> HealthResponse:
         components=components,
     )
 
+    status_code = 503 if overall == ComponentStatus.DOWN else 200
+    return JSONResponse(content=response.model_dump(mode="json"), status_code=status_code)
 
-# ============================================================
-# Helpers
-# ============================================================
 
 def _check_component(
     state,

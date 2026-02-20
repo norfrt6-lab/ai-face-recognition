@@ -1,8 +1,3 @@
-# ============================================================
-# core/enhancer/__init__.py
-# Face Enhancement Package — Phase 5
-# ============================================================
-
 try:
     from .base_enhancer import (
         BaseEnhancer,

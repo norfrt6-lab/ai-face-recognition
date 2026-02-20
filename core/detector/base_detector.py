@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# core/detector/base_detector.py
-# ============================================================
 # Defines the abstract contract that ALL face detectors must
 # implement, plus shared data-types used throughout the pipeline.
 #
@@ -9,7 +5,6 @@
 #   BaseDetector  (abstract)
 #       └── YOLOFaceDetector
 #       └── <any future detector>
-# ============================================================
 
 from __future__ import annotations
 
@@ -20,10 +15,6 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
-
-# ============================================================
-# Data Types
-# ============================================================
 
 @dataclass
 class FaceBox:
@@ -301,8 +292,6 @@ def face_box_from_xyxy(
     )
 
 
-# ============================================================
-
 @dataclass
 class DetectionResult:
     """
@@ -439,10 +428,6 @@ class DetectionResult:
             f")"
         )
 
-
-# ============================================================
-# Abstract Base Detector
-# ============================================================
 
 class BaseDetector(ABC):
     """

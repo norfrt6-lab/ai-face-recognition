@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# core/recognizer/insightface_recognizer.py
-# ============================================================
 # InsightFace-based face recognizer.
 #
 # Uses the InsightFace FaceAnalysis pipeline (buffalo_l model pack)
@@ -18,7 +14,6 @@
 #   - Automatic ONNX execution provider selection
 #   - Graceful fallback to CPU if CUDA is unavailable
 #   - All outputs normalised to unit L2 norm
-# ============================================================
 
 from __future__ import annotations
 
@@ -38,11 +33,9 @@ from core.recognizer.base_recognizer import (
     RecognitionResult,
     cosine_similarity,
 )
+from core.swapper.base_swapper import ARCFACE_REF_112, norm_crop
+from utils.image_utils import normalise_channels
 
-
-# ============================================================
-# InsightFaceRecognizer
-# ============================================================
 
 class InsightFaceRecognizer(BaseRecognizer):
     """
@@ -227,20 +220,17 @@ class InsightFaceRecognizer(BaseRecognizer):
         t0 = self._timer()
 
         try:
-            # ── Mode 1: landmarks provided — align face precisely ──────
             if landmarks is not None and landmarks.shape == (5, 2):
                 return self._embed_aligned(
                     image, landmarks=landmarks, t0=t0
                 )
 
-            # ── Mode 2: bbox provided — crop + re-detect inside crop ───
             if bbox is not None:
                 return self._embed_from_bbox(image, bbox=bbox, t0=t0)
 
-            # ── Mode 3: full-image — InsightFace detects internally ────
             return self._embed_full_image(image, t0=t0)
 
-        except Exception as exc:
+        except (RuntimeError, ValueError, AttributeError) as exc:
             logger.warning(f"get_embedding failed: {exc}")
             return None
 
@@ -271,7 +261,7 @@ class InsightFaceRecognizer(BaseRecognizer):
 
         try:
             faces = self._app.get(bgr)
-        except Exception as exc:
+        except (RuntimeError, ValueError, AttributeError) as exc:
             logger.warning(f"InsightFace.get() failed: {exc}")
             return []
 
@@ -348,7 +338,7 @@ class InsightFaceRecognizer(BaseRecognizer):
 
         try:
             faces = self._app.get(bgr)
-        except Exception as exc:
+        except (RuntimeError, ValueError, AttributeError) as exc:
             logger.warning(f"get_attributes InsightFace.get() failed: {exc}")
             return None
 
@@ -629,8 +619,10 @@ class InsightFaceRecognizer(BaseRecognizer):
         norm = np.linalg.norm(vec)
         if norm > 1e-10:
             vec = vec / norm
+        else:
+            logger.warning("Embedding norm near zero — degenerate extraction.")
+            return None
 
-        # ── Bounding box ─────────────────────────────────────────────
         bbox_raw = getattr(face, "bbox", None)
         bbox = None
         if bbox_raw is not None:
@@ -640,7 +632,6 @@ class InsightFaceRecognizer(BaseRecognizer):
             except Exception:
                 bbox = None
 
-        # ── Landmarks ────────────────────────────────────────────────
         kps = getattr(face, "kps", None)
         landmarks = None
         if kps is not None:
@@ -649,7 +640,6 @@ class InsightFaceRecognizer(BaseRecognizer):
             except Exception:
                 landmarks = None
 
-        # ── Attributes ───────────────────────────────────────────────
         attributes = self._extract_attributes(face)
 
         return FaceEmbedding(
@@ -706,48 +696,11 @@ class InsightFaceRecognizer(BaseRecognizer):
         landmarks: np.ndarray,
         output_size: int = 112,
     ) -> np.ndarray:
-        """
-        Affine-align a face to the ArcFace canonical 112×112 crop.
-
-        Args:
-            image:       Source BGR image.
-            landmarks:   (5, 2) float32 array — [left_eye, right_eye,
-                         nose, left_mouth, right_mouth].
-            output_size: Square output resolution (default 112).
-
-        Returns:
-            Aligned BGR crop of shape (output_size, output_size, 3).
-
-        Raises:
-            ValueError: If affine estimation fails.
-        """
-        # ArcFace canonical reference points for 112×112
-        ref_pts = np.array(
-            [
-                [38.2946, 51.6963],
-                [73.5318, 51.5014],
-                [56.0252, 71.7366],
-                [41.5493, 92.3655],
-                [70.7299, 92.2041],
-            ],
-            dtype=np.float32,
-        )
-        scale = output_size / 112.0
-        ref_pts = ref_pts * scale
-
-        src_pts = landmarks.astype(np.float32)
-        M, _ = cv2.estimateAffinePartial2D(src_pts, ref_pts, method=cv2.LMEDS)
-
-        if M is None:
-            raise ValueError(
-                "Could not estimate affine transform from landmarks."
-            )
-
-        return cv2.warpAffine(
-            image, M, (output_size, output_size),
-            flags=cv2.INTER_LINEAR,
-            borderMode=cv2.BORDER_REPLICATE,
-        )
+        """Affine-align a face to the ArcFace canonical crop using shared norm_crop."""
+        crop, M = norm_crop(image, landmarks, output_size=output_size)
+        if crop is None:
+            raise ValueError("Could not estimate affine transform from landmarks.")
+        return crop
 
     @staticmethod
     def _crop_padded(
@@ -783,26 +736,13 @@ class InsightFaceRecognizer(BaseRecognizer):
 
     @staticmethod
     def _ensure_bgr(image: np.ndarray) -> np.ndarray:
-        """
-        Ensure the image is a 3-channel BGR uint8 array.
-
-        Handles: BGRA → BGR, GRAY → BGR, float → uint8.
-        """
         if image.dtype != np.uint8:
-            image = np.clip(image * 255 if image.max() <= 1.0 else image,
-                            0, 255).astype(np.uint8)
-
-        if image.ndim == 2:
-            return cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-
-        if image.ndim == 3:
-            c = image.shape[2]
-            if c == 4:
-                return cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
-            if c == 3:
-                return image
-
-        raise ValueError(f"Unsupported image shape: {image.shape}")
+            # Use dtype to decide scaling: float images in [0,1] need *255
+            if np.issubdtype(image.dtype, np.floating):
+                image = np.clip(image * 255, 0, 255).astype(np.uint8)
+            else:
+                image = np.clip(image, 0, 255).astype(np.uint8)
+        return normalise_channels(image)
 
     def _resolve_ctx_id(self) -> int:
         """

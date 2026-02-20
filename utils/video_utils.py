@@ -1,14 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap - Video Utilities
-# ============================================================
-# Helpers for:
-#   - Reading video metadata
-#   - Extracting frames from video files / webcam
-#   - Writing processed frames back to video
-#   - Audio preservation (via ffmpeg)
-#   - Progress tracking with tqdm
-# ============================================================
-
 from __future__ import annotations
 
 import os
@@ -23,10 +12,6 @@ import numpy as np
 from loguru import logger
 from tqdm import tqdm
 
-
-# ============================================================
-# Data Classes
-# ============================================================
 
 class VideoMeta:
     """Metadata container for a video file."""
@@ -71,10 +56,6 @@ class VideoMeta:
             f"audio={self.has_audio})"
         )
 
-
-# ============================================================
-# Metadata
-# ============================================================
 
 def get_video_meta(video_path: str | Path) -> VideoMeta:
     """
@@ -147,10 +128,6 @@ def _probe_audio(path: Path) -> bool:
         # ffprobe not installed or timed out — assume no audio
         return False
 
-
-# ============================================================
-# Frame Extraction
-# ============================================================
 
 def extract_frames(
     video_path: str | Path,
@@ -293,10 +270,6 @@ def iter_frames(
         cap.release()
 
 
-# ============================================================
-# Webcam / Live Stream
-# ============================================================
-
 def iter_webcam(
     device_id: int = 0,
     *,
@@ -348,10 +321,6 @@ def iter_webcam(
         cap.release()
         logger.info("Webcam released.")
 
-
-# ============================================================
-# Video Writing
-# ============================================================
 
 class VideoWriter:
     """
@@ -507,10 +476,6 @@ def frames_to_video(
     return output_path
 
 
-# ============================================================
-# Audio Utilities (ffmpeg-based)
-# ============================================================
-
 def extract_audio(video_path: str | Path, audio_out: str | Path) -> Optional[Path]:
     """
     Extract the audio track from a video file using ffmpeg.
@@ -605,10 +570,6 @@ def merge_audio_video(
     except subprocess.CalledProcessError as exc:
         raise RuntimeError(f"ffmpeg merge failed: {exc.stderr.decode()}")
 
-
-# ============================================================
-# High-Level Helpers
-# ============================================================
 
 def process_video(
     input_path: str | Path,

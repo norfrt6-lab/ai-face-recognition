@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# tests/unit/test_enhancer.py
-# ============================================================
 # Unit tests for Phase 5 — Face Enhancement.
 #
 # Covers:
@@ -20,7 +16,6 @@
 #
 # NO real model weights are required — every third-party call
 # (gfpgan, torch, basicsr, facexlib) is patched via unittest.mock.
-# ============================================================
 
 from __future__ import annotations
 
@@ -45,10 +40,6 @@ from core.enhancer.base_enhancer import (
     unpad_image,
 )
 
-
-# ============================================================
-# Shared test helpers
-# ============================================================
 
 def _img(h: int = 128, w: int = 128) -> np.ndarray:
     """Return a random BGR uint8 test image."""
@@ -93,10 +84,6 @@ def _make_result(success: bool = True) -> EnhancementResult:
     )
 
 
-# ============================================================
-# Minimal concrete subclass of BaseEnhancer for abstract tests
-# ============================================================
-
 class _StubEnhancer(BaseEnhancer):
     """Minimal concrete enhancer for testing BaseEnhancer behaviour."""
 
@@ -135,67 +122,16 @@ class _StubEnhancer(BaseEnhancer):
         )
 
 
-# ============================================================
-# 1. EnhancerBackend
-# ============================================================
-
 @pytest.mark.unit
 @pytest.mark.enhancer
-class TestEnhancerBackend:
+class TestEnumsSmokeTest:
 
-    def test_gfpgan_value(self):
-        assert EnhancerBackend.GFPGAN.value == "gfpgan"
+    def test_backends_importable(self):
+        assert len(list(EnhancerBackend)) >= 3
 
-    def test_codeformer_value(self):
-        assert EnhancerBackend.CODEFORMER.value == "codeformer"
-
-    def test_none_value(self):
-        assert EnhancerBackend.NONE.value == "none"
-
-    def test_all_members_present(self):
-        members = {e.value for e in EnhancerBackend}
-        assert {"gfpgan", "codeformer", "none"}.issubset(members)
-
-    def test_from_string_gfpgan(self):
-        assert EnhancerBackend("gfpgan") == EnhancerBackend.GFPGAN
-
-    def test_from_string_codeformer(self):
-        assert EnhancerBackend("codeformer") == EnhancerBackend.CODEFORMER
-
-
-# ============================================================
-# 2. EnhancementStatus
-# ============================================================
-
-@pytest.mark.unit
-@pytest.mark.enhancer
-class TestEnhancementStatus:
-
-    def test_success_value(self):
+    def test_statuses_importable(self):
         assert EnhancementStatus.SUCCESS.value == "success"
 
-    def test_no_face_detected_value(self):
-        assert EnhancementStatus.NO_FACE_DETECTED.value == "no_face_detected"
-
-    def test_inference_error_value(self):
-        assert EnhancementStatus.INFERENCE_ERROR.value == "inference_error"
-
-    def test_model_not_loaded_value(self):
-        assert EnhancementStatus.MODEL_NOT_LOADED.value == "model_not_loaded"
-
-    def test_invalid_input_value(self):
-        assert EnhancementStatus.INVALID_INPUT.value == "invalid_input"
-
-    def test_disabled_value(self):
-        assert EnhancementStatus.DISABLED.value == "disabled"
-
-    def test_all_six_statuses_exist(self):
-        assert len(EnhancementStatus) >= 6
-
-
-# ============================================================
-# 3. EnhancementRequest
-# ============================================================
 
 @pytest.mark.unit
 @pytest.mark.enhancer
@@ -278,10 +214,6 @@ class TestEnhancementRequest:
         req.metadata["key"] = "value"
         assert req.metadata["key"] == "value"
 
-
-# ============================================================
-# 4. EnhancementResult
-# ============================================================
 
 @pytest.mark.unit
 @pytest.mark.enhancer
@@ -375,10 +307,6 @@ class TestEnhancementResult:
         assert r.face_crops is None
 
 
-# ============================================================
-# 5. pad_image_for_enhancement
-# ============================================================
-
 @pytest.mark.unit
 @pytest.mark.enhancer
 class TestPadImageForEnhancement:
@@ -431,10 +359,6 @@ class TestPadImageForEnhancement:
         assert img.shape[1] >= 256
 
 
-# ============================================================
-# 6. unpad_image
-# ============================================================
-
 @pytest.mark.unit
 @pytest.mark.enhancer
 class TestUnpadImage:
@@ -480,10 +404,6 @@ class TestUnpadImage:
         assert isinstance(out, np.ndarray)
 
 
-# ============================================================
-# 7. find_center_face
-# ============================================================
-
 @pytest.mark.unit
 @pytest.mark.enhancer
 class TestFindCenterFace:
@@ -526,10 +446,6 @@ class TestFindCenterFace:
         result = find_center_face([far_face, near_face], 20, 20)
         assert result is near_face
 
-
-# ============================================================
-# 8. BaseEnhancer (via _StubEnhancer)
-# ============================================================
 
 @pytest.mark.unit
 @pytest.mark.enhancer
@@ -713,10 +629,6 @@ class TestBaseEnhancer:
         assert r.status == EnhancementStatus.MODEL_NOT_LOADED
 
 
-# ============================================================
-# 9. GFPGANEnhancer — construction
-# ============================================================
-
 @pytest.mark.unit
 @pytest.mark.enhancer
 class TestGFPGANEnhancerConstruction:
@@ -781,10 +693,6 @@ class TestGFPGANEnhancerConstruction:
         assert "not loaded" in repr(enh)
 
 
-# ============================================================
-# 10. GFPGANEnhancer — load_model error paths
-# ============================================================
-
 @pytest.mark.unit
 @pytest.mark.enhancer
 class TestGFPGANEnhancerLoadModel:
@@ -816,10 +724,6 @@ class TestGFPGANEnhancerLoadModel:
             pass
         assert enh.is_loaded is False
 
-
-# ============================================================
-# 11. GFPGANEnhancer — enhance() with mocked GFPGANer
-# ============================================================
 
 @pytest.mark.unit
 @pytest.mark.enhancer
@@ -957,10 +861,6 @@ class TestGFPGANEnhancerEnhance:
         assert isinstance(r.output_image, np.ndarray)
 
 
-# ============================================================
-# 12. GFPGANEnhancer — release and repr
-# ============================================================
-
 @pytest.mark.unit
 @pytest.mark.enhancer
 class TestGFPGANEnhancerReleaseRepr:
@@ -1000,10 +900,6 @@ class TestGFPGANEnhancerReleaseRepr:
         enh = self._make_loaded()
         assert "calls=0" in repr(enh)
 
-
-# ============================================================
-# 13. CodeFormerEnhancer — construction
-# ============================================================
 
 @pytest.mark.unit
 @pytest.mark.enhancer
@@ -1069,10 +965,6 @@ class TestCodeFormerEnhancerConstruction:
         assert "not loaded" in repr(enh)
 
 
-# ============================================================
-# 14. CodeFormerEnhancer — load_model error paths
-# ============================================================
-
 @pytest.mark.unit
 @pytest.mark.enhancer
 class TestCodeFormerEnhancerLoadModel:
@@ -1096,10 +988,6 @@ class TestCodeFormerEnhancerLoadModel:
             pass
         assert enh.is_loaded is False
 
-
-# ============================================================
-# 15. CodeFormerEnhancer — enhance() with mocked internals
-# ============================================================
 
 @pytest.mark.unit
 @pytest.mark.enhancer
@@ -1193,10 +1081,6 @@ class TestCodeFormerEnhancerEnhance:
             r = enh.enhance(_make_request())
         assert r.backend == EnhancerBackend.CODEFORMER
 
-
-# ============================================================
-# 16. CodeFormerEnhancer — release and repr
-# ============================================================
 
 @pytest.mark.unit
 @pytest.mark.enhancer

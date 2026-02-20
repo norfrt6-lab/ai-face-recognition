@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# api/schemas/responses.py
-# ============================================================
 # Pydantic v2 response models for all FastAPI endpoints.
 #
 # These models define the exact JSON structure returned by:
@@ -9,7 +5,6 @@
 #   POST /api/v1/recognize
 #   POST /api/v1/register
 #   POST /api/v1/swap
-# ============================================================
 
 from __future__ import annotations
 
@@ -18,10 +13,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-
-# ============================================================
-# Shared / primitive models
-# ============================================================
 
 class BoundingBox(BaseModel):
     """Axis-aligned face bounding box in pixel coordinates."""
@@ -75,10 +66,6 @@ class DetectedFace(BaseModel):
     )
 
 
-# ============================================================
-# Health endpoint
-# ============================================================
-
 class ComponentStatus(str, Enum):
     """Status of an individual system component."""
     OK      = "ok"
@@ -131,10 +118,6 @@ class HealthResponse(BaseModel):
         }
     }
 
-
-# ============================================================
-# Recognition endpoint
-# ============================================================
 
 class FaceMatchResponse(BaseModel):
     """A single face-to-identity match result."""
@@ -219,10 +202,6 @@ class RecognizeResponse(BaseModel):
     }
 
 
-# ============================================================
-# Register endpoint
-# ============================================================
-
 class RegisterResponse(BaseModel):
     """
     Response for POST /api/v1/register.
@@ -257,10 +236,6 @@ class RegisterResponse(BaseModel):
         }
     }
 
-
-# ============================================================
-# Face Swap endpoint
-# ============================================================
 
 class SwapTimingBreakdown(BaseModel):
     """Detailed timing breakdown for a single face swap operation."""
@@ -361,10 +336,6 @@ class SwapResponse(BaseModel):
     }
 
 
-# ============================================================
-# Error response
-# ============================================================
-
 class ErrorDetail(BaseModel):
     """A single structured error detail."""
 
@@ -401,10 +372,6 @@ class ErrorResponse(BaseModel):
         }
     }
 
-
-# ============================================================
-# Convenience re-exports
-# ============================================================
 
 __all__ = [
     # Shared

@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# ui/pages/face_swap.py
-# ============================================================
 # Streamlit page for the face swap feature.
 #
 # Layout:
@@ -12,11 +8,11 @@
 #   ┌─────────────────────────────────────────────────────┐
 #   │  Swap Settings (sidebar)                            │
 #   └─────────────────────────────────────────────────────┘
-# ============================================================
 
 from __future__ import annotations
 
 import base64
+import html
 import io
 import time
 from typing import Optional
@@ -26,10 +22,6 @@ import streamlit as st
 from PIL import Image
 
 
-# ============================================================
-# Page configuration (must be first Streamlit call)
-# ============================================================
-
 st.set_page_config(
     page_title="Face Swap — AI Face Recognition",
     page_icon="🔄",
@@ -38,10 +30,6 @@ st.set_page_config(
 )
 
 
-# ============================================================
-# Constants
-# ============================================================
-
 import os as _os
 API_BASE_URL_DEFAULT = _os.getenv("UI_API_BASE_URL", "http://localhost:8000")
 SWAP_ENDPOINT        = "/api/v1/swap"
@@ -49,10 +37,6 @@ HEALTH_ENDPOINT      = "/api/v1/health"
 MAX_IMAGE_SIZE_MB    = 50
 SUPPORTED_FORMATS    = ["jpg", "jpeg", "png", "webp", "bmp"]
 
-
-# ============================================================
-# Session state initialisation
-# ============================================================
 
 def _init_session_state() -> None:
     """Initialise all session state keys with defaults."""
@@ -70,10 +54,6 @@ def _init_session_state() -> None:
 
 _init_session_state()
 
-
-# ============================================================
-# API helpers
-# ============================================================
 
 def _get_api_url() -> str:
     return st.session_state.get("api_url", API_BASE_URL_DEFAULT).rstrip("/")
@@ -122,6 +102,7 @@ def _call_swap_api(
     enhancer_backend:  str,
     enhancer_fidelity: float,
     watermark:         bool,
+    consent:           bool = False,
 ) -> dict:
     """
     Call POST /api/v1/swap with return_base64=true.
@@ -131,9 +112,16 @@ def _call_swap_api(
     """
     url = f"{_get_api_url()}{SWAP_ENDPOINT}"
 
+    def _guess_mime(filename: str) -> str:
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+        return {
+            "jpg": "image/jpeg", "jpeg": "image/jpeg",
+            "png": "image/png", "webp": "image/webp", "bmp": "image/bmp",
+        }.get(ext, "image/jpeg")
+
     files = {
-        "source_file": (source_filename, source_bytes, "image/jpeg"),
-        "target_file": (target_filename, target_bytes, "image/jpeg"),
+        "source_file": (source_filename, source_bytes, _guess_mime(source_filename)),
+        "target_file": (target_filename, target_bytes, _guess_mime(target_filename)),
     }
     data = {
         "blend_mode":         blend_mode,
@@ -148,7 +136,7 @@ def _call_swap_api(
         "enhancer_fidelity":  str(enhancer_fidelity),
         "watermark":          str(watermark).lower(),
         "return_base64":      "true",
-        "consent":            "true",
+        "consent":            str(consent).lower(),
     }
 
     try:
@@ -208,10 +196,6 @@ def _call_swap_api(
         }
 
 
-# ============================================================
-# Sidebar
-# ============================================================
-
 def _render_sidebar() -> dict:
     """
     Render the sidebar and return the current settings dict.
@@ -220,7 +204,6 @@ def _render_sidebar() -> dict:
         st.title("⚙️ Swap Settings")
         st.divider()
 
-        # ── API connection ───────────────────────────────────────────
         st.subheader("🔗 API Connection")
         api_url = st.text_input(
             "API Base URL",
@@ -255,7 +238,6 @@ def _render_sidebar() -> dict:
 
         st.divider()
 
-        # ── Blend mode ───────────────────────────────────────────────
         st.subheader("🎨 Blending")
         blend_mode = st.selectbox(
             "Blend Mode",
@@ -286,7 +268,6 @@ def _render_sidebar() -> dict:
 
         st.divider()
 
-        # ── Face selection ───────────────────────────────────────────
         st.subheader("👤 Face Selection")
         swap_all_faces = st.toggle(
             "Swap All Faces in Target",
@@ -326,7 +307,6 @@ def _render_sidebar() -> dict:
 
         st.divider()
 
-        # ── Enhancement ──────────────────────────────────────────────
         st.subheader("✨ Enhancement")
         enhance = st.toggle(
             "Enable Face Enhancement",
@@ -356,7 +336,6 @@ def _render_sidebar() -> dict:
 
         st.divider()
 
-        # ── Output ───────────────────────────────────────────────────
         st.subheader("📤 Output")
         watermark = st.toggle(
             "Watermark Output",
@@ -366,12 +345,16 @@ def _render_sidebar() -> dict:
 
         st.divider()
 
-        # ── Ethics notice ────────────────────────────────────────────
         st.subheader("⚠️ Ethics")
         st.warning(
-            "By clicking **Run Swap** you confirm that you have "
+            "You must confirm that you have "
             "**explicit consent** from all individuals depicted.\n\n"
             "Do NOT create non-consensual deepfakes."
+        )
+        consent = st.checkbox(
+            "I have explicit consent from all individuals depicted",
+            value=False,
+            key="swap_consent",
         )
 
     return {
@@ -386,12 +369,9 @@ def _render_sidebar() -> dict:
         "enhancer_backend":  enhancer_backend,
         "enhancer_fidelity": enhancer_fidelity,
         "watermark":         watermark,
+        "consent":           consent,
     }
 
-
-# ============================================================
-# Image upload widget
-# ============================================================
 
 def _image_uploader(label: str, key: str, help_text: str = "") -> Optional[bytes]:
     """
@@ -444,16 +424,12 @@ def _display_image(
                 align-items: center;
                 justify-content: center;
             ">
-                {placeholder_text}
+                {html.escape(placeholder_text)}
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-
-# ============================================================
-# Result info panel
-# ============================================================
 
 def _render_result_info(info: dict) -> None:
     """Render timing + per-face stats from the API response."""
@@ -494,12 +470,7 @@ def _render_result_info(info: dict) -> None:
                     st.error(f"  Error: {err}")
 
 
-# ============================================================
-# Main page
-# ============================================================
-
 def main() -> None:
-    # ── Header ──────────────────────────────────────────────────────
     st.title("🔄 Face Swap")
     st.markdown(
         "Upload a **source** image (the donor face) and a **target** image "
@@ -508,10 +479,8 @@ def main() -> None:
     )
     st.divider()
 
-    # ── Sidebar settings ────────────────────────────────────────────
     settings = _render_sidebar()
 
-    # ── Three-column layout ─────────────────────────────────────────
     col_src, col_tgt, col_out = st.columns(3, gap="medium")
 
     with col_src:
@@ -559,11 +528,10 @@ def main() -> None:
 
     st.divider()
 
-    # ── Run button ──────────────────────────────────────────────────
     run_col, clear_col = st.columns([3, 1])
 
     with run_col:
-        run_disabled = (source_bytes is None or target_bytes is None)
+        run_disabled = (source_bytes is None or target_bytes is None or not settings.get("consent", False))
         run_clicked  = st.button(
             "🔄 Run Face Swap",
             disabled=run_disabled,
@@ -582,7 +550,6 @@ def main() -> None:
             st.session_state.swap_result_info  = None
             st.rerun()
 
-    # ── Show hint if images missing ──────────────────────────────────
     if run_disabled and (source_bytes is None or target_bytes is None):
         missing = []
         if source_bytes is None:
@@ -594,7 +561,6 @@ def main() -> None:
             "to enable the swap button."
         )
 
-    # ── Execute swap ─────────────────────────────────────────────────
     if run_clicked and source_bytes and target_bytes:
         with st.spinner("Running face swap pipeline…"):
             result = _call_swap_api(
@@ -617,13 +583,11 @@ def main() -> None:
         else:
             st.error(f"❌ Swap failed: {result['error']}")
 
-    # ── Result info panel ────────────────────────────────────────────
     if result_info:
         st.divider()
         st.subheader("📊 Result Details")
         _render_result_info(result_info)
 
-    # ── Usage tips ───────────────────────────────────────────────────
     with st.expander("💡 Tips for best results", expanded=False):
         st.markdown(
             """
@@ -643,10 +607,6 @@ def main() -> None:
             """
         )
 
-
-# ============================================================
-# Entry point
-# ============================================================
 
 if __name__ == "__main__":
     main()
