@@ -176,10 +176,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Hard cap on tracked IPs to prevent memory exhaustion
         if len(self._windows) >= self._max_tracked_ips and client_ip not in self._windows:
             logger.warning(
-                f"Rate limiter: max tracked IPs ({self._max_tracked_ips}) reached, rejecting new IP."
+                "Rate limiter: max tracked IPs "
+                f"({self._max_tracked_ips}) reached, rejecting new IP."
             )
             return Response(
-                content='{"error":"rate_limit_exceeded","message":"Server under heavy load. Try again later."}',
+                content=(
+                    '{"error":"rate_limit_exceeded",'
+                    '"message":"Server under heavy load. Try again later."}'
+                ),
                 status_code=429,
                 media_type="application/json",
                 headers={"Retry-After": "60"},

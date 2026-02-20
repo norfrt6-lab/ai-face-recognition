@@ -626,10 +626,10 @@ class BaseRecognizer(ABC):
             raise ValueError("Image is None.")
         if not isinstance(image, np.ndarray):
             raise ValueError(f"Expected numpy ndarray, got {type(image).__name__}.")
-        if image.ndim not in (2, 3):
-            raise ValueError(f"Expected 2-D or 3-D array, got shape {image.shape}.")
         if image.size == 0:
             raise ValueError("Image array is empty (zero size).")
+        if image.ndim not in (2, 3):
+            raise ValueError(f"Expected 2-D or 3-D array, got shape {image.shape}.")
 
     @staticmethod
     def _timer() -> float:

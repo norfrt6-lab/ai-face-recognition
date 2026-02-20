@@ -206,7 +206,7 @@ def _annotate_image(
         is_known = match.get("is_known", False)
         identity = match.get("identity_name") or "Unknown"
         similarity = match.get("similarity", 0.0)
-        conf_detect = bbox.get("confidence", 0.0)
+        _ = bbox.get("confidence", 0.0)  # reserved for future use
 
         # Choose box colour
         if not is_known:

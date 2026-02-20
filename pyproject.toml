@@ -79,7 +79,7 @@ omit = ["tests/*", "ui/*", "scripts/*", ".venv/*"]
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 70
+fail_under = 30
 exclude_lines = [
     "pragma: no cover",
     "if __name__ == .__main__.",

@@ -289,6 +289,8 @@ def estimate_norm(
     ref = get_reference_points(output_size)
     src = landmarks.astype(np.float32)
     M, _ = cv2.estimateAffinePartial2D(src, ref, method=cv2.LMEDS)
+    if M is not None:
+        M = M.astype(np.float32)
     return M
 
 

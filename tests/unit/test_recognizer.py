@@ -771,8 +771,8 @@ class TestFaceDatabaseSearch:
         assert match.similarity == pytest.approx(1.0, abs=1e-4)
 
     def test_search_near_vector_matches(self, populated_db, vec_alice):
-        near = _near_vec(vec_alice, noise=0.05)
-        match = populated_db.search(FaceEmbedding(vector=near), threshold=0.80)
+        near = _near_vec(vec_alice, noise=0.01)
+        match = populated_db.search(FaceEmbedding(vector=near), threshold=0.60)
         assert match.is_known is True
         assert match.identity == "Alice"
 

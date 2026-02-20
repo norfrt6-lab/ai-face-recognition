@@ -29,7 +29,7 @@ st.set_page_config(
 )
 
 
-import os as _os
+import os as _os  # noqa: E402
 
 API_BASE_URL_DEFAULT = _os.getenv("UI_API_BASE_URL", "http://localhost:8000")
 SWAP_ENDPOINT = "/api/v1/swap"
@@ -440,8 +440,8 @@ def _render_result_info(info: dict) -> None:
     swapped = info.get("num_faces_swapped", 0)
     failed = info.get("num_faces_failed", 0)
     enhanced = info.get("enhanced", False)
-    watermarked = info.get("watermarked", False)
-    blend = info.get("blend_mode", "—")
+    _ = info.get("watermarked", False)  # reserved for future display
+    _ = info.get("blend_mode", "—")  # reserved for future display
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("⏱️ Total Time", f"{total_ms:.0f} ms")

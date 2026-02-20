@@ -349,7 +349,7 @@ def _register_exception_handlers(app: FastAPI) -> None:
         """Return a structured 422 for Pydantic / FastAPI validation errors."""
         details = []
         for error in exc.errors():
-            loc = " → ".join(str(l) for l in error.get("loc", []))
+            loc = " → ".join(str(part) for part in error.get("loc", []))
             msg = error.get("msg", "Validation error")
             code = error.get("type", "validation_error")
             details.append(ErrorDetail(field=loc or None, message=msg, code=code))
