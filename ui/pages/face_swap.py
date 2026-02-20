@@ -101,6 +101,7 @@ def _call_swap_api(
     enhancer_backend:  str,
     enhancer_fidelity: float,
     watermark:         bool,
+    consent:           bool = False,
 ) -> dict:
     """
     Call POST /api/v1/swap with return_base64=true.
@@ -127,7 +128,7 @@ def _call_swap_api(
         "enhancer_fidelity":  str(enhancer_fidelity),
         "watermark":          str(watermark).lower(),
         "return_base64":      "true",
-        "consent":            "true",
+        "consent":            str(consent).lower(),
     }
 
     try:
@@ -338,9 +339,14 @@ def _render_sidebar() -> dict:
 
         st.subheader("⚠️ Ethics")
         st.warning(
-            "By clicking **Run Swap** you confirm that you have "
+            "You must confirm that you have "
             "**explicit consent** from all individuals depicted.\n\n"
             "Do NOT create non-consensual deepfakes."
+        )
+        consent = st.checkbox(
+            "I have explicit consent from all individuals depicted",
+            value=False,
+            key="swap_consent",
         )
 
     return {
@@ -355,6 +361,7 @@ def _render_sidebar() -> dict:
         "enhancer_backend":  enhancer_backend,
         "enhancer_fidelity": enhancer_fidelity,
         "watermark":         watermark,
+        "consent":           consent,
     }
 
 
@@ -516,7 +523,7 @@ def main() -> None:
     run_col, clear_col = st.columns([3, 1])
 
     with run_col:
-        run_disabled = (source_bytes is None or target_bytes is None)
+        run_disabled = (source_bytes is None or target_bytes is None or not settings.get("consent", False))
         run_clicked  = st.button(
             "🔄 Run Face Swap",
             disabled=run_disabled,
