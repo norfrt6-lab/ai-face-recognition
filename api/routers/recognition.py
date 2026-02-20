@@ -11,6 +11,7 @@ import cv2
 import numpy as np
 from fastapi import (
     APIRouter,
+    Depends,
     File,
     Form,
     HTTPException,
@@ -19,9 +20,12 @@ from fastapi import (
     status,
 )
 
-# Note: RecognizeRequest, RegisterRequest etc. are defined in schemas/requests.py
-# with Pydantic validators, but the route handlers use Form() parameters directly
-# for multipart/form-data support. The schemas serve as documentation only.
+from api.schemas.requests import (
+    RecognizeRequest as RecognizeRequestSchema,
+    RegisterRequest as RegisterRequestSchema,
+    recognize_form_dep,
+    register_form_dep,
+)
 from api.schemas.responses import (
     BoundingBox,
     ErrorResponse,
@@ -169,12 +173,8 @@ def _check_components(state, *names: str) -> None:
 )
 async def recognize(
     request:     Request,
-    image:       UploadFile        = File(..., description="Image file (JPEG / PNG / WebP / BMP)."),
-    top_k:       int               = Form(default=1,    ge=1, le=20),
-    similarity_threshold: Optional[float] = Form(default=None, ge=0.0, le=1.0),
-    return_attributes:    bool     = Form(default=False),
-    return_embeddings:    bool     = Form(default=False),
-    consent:     bool              = Form(default=False),
+    image:       UploadFile                = File(..., description="Image file (JPEG / PNG / WebP / BMP)."),
+    params:      RecognizeRequestSchema    = Depends(recognize_form_dep),
 ) -> RecognizeResponse:
     """
     Detect all faces in *image* and attempt to match each one against
@@ -193,14 +193,10 @@ async def recognize(
     request_id = str(uuid.uuid4())
     logger.info(f"[{request_id[:8]}] POST /recognize — file={image.filename!r}")
 
-    if not consent:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "consent must be true. "
-                "You must have explicit consent from all individuals in the image."
-            ),
-        )
+    # Unpack validated params
+    top_k = params.top_k
+    similarity_threshold = params.similarity_threshold
+    return_attributes = params.return_attributes
 
     _check_components(request.app.state, "detector", "recognizer")
 
@@ -408,11 +404,8 @@ async def recognize(
 )
 async def register(
     request:     Request,
-    image:       UploadFile     = File(..., description="Face image (JPEG / PNG / WebP / BMP)."),
-    name:        str            = Form(...,         min_length=1, max_length=128),
-    identity_id: Optional[str]  = Form(default=None),
-    overwrite:   bool           = Form(default=False),
-    consent:     bool           = Form(default=False),
+    image:       UploadFile              = File(..., description="Face image (JPEG / PNG / WebP / BMP)."),
+    params:      RegisterRequestSchema   = Depends(register_form_dep),
 ) -> RegisterResponse:
     """
     Register a face identity in the database.
@@ -427,26 +420,16 @@ async def register(
     """
     t_start    = time.perf_counter()
     request_id = str(uuid.uuid4())
+
+    # Unpack validated params
+    name        = params.name
+    identity_id = params.identity_id
+    overwrite   = params.overwrite
+
     logger.info(
         f"[{request_id[:8]}] POST /register — "
         f"name={name!r} identity_id={identity_id!r}"
     )
-
-    if not consent:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "consent must be true. "
-                "You must have explicit consent from the person being registered."
-            ),
-        )
-
-    # Name validation
-    if "/" in name or "\\" in name:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="name must not contain path separators.",
-        )
 
     _check_components(request.app.state, "detector", "recognizer")
 

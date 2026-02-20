@@ -328,3 +328,79 @@ class ListIdentitiesRequest(BaseAPIRequest):
         default=None,
         description="Optional case-insensitive substring filter on identity name.",
     )
+
+
+# ---------------------------------------------------------------------------
+# Dependency helpers for FastAPI `Depends()`.
+#
+# Since multipart/form-data endpoints require Form() fields alongside
+# File() uploads, we cannot use a Pydantic model directly as the body.
+# These helpers construct the validated schema from individual Form values
+# so that Pydantic field_validators run server-side.
+# ---------------------------------------------------------------------------
+
+from fastapi import Form as _Form  # noqa: E402
+
+
+def recognize_form_dep(
+    top_k: int = _Form(default=1, ge=1, le=20),
+    similarity_threshold: Optional[float] = _Form(default=None, ge=0.0, le=1.0),
+    return_attributes: bool = _Form(default=False),
+    return_embeddings: bool = _Form(default=False),
+    consent: bool = _Form(default=False),
+) -> RecognizeRequest:
+    """Build and validate a ``RecognizeRequest`` from Form fields."""
+    return RecognizeRequest(
+        top_k=top_k,
+        similarity_threshold=similarity_threshold,
+        return_attributes=return_attributes,
+        return_embeddings=return_embeddings,
+        consent=consent,
+    )
+
+
+def register_form_dep(
+    name: str = _Form(..., min_length=1, max_length=128),
+    identity_id: Optional[str] = _Form(default=None),
+    overwrite: bool = _Form(default=False),
+    consent: bool = _Form(default=False),
+) -> RegisterRequest:
+    """Build and validate a ``RegisterRequest`` from Form fields."""
+    return RegisterRequest(
+        name=name,
+        identity_id=identity_id,
+        overwrite=overwrite,
+        consent=consent,
+    )
+
+
+def swap_form_dep(
+    blend_mode: str = _Form(default="poisson"),
+    blend_alpha: float = _Form(default=1.0, ge=0.0, le=1.0),
+    mask_feather: int = _Form(default=20, ge=0, le=100),
+    swap_all_faces: bool = _Form(default=False),
+    max_faces: int = _Form(default=10, ge=1, le=50),
+    source_face_index: int = _Form(default=0, ge=0),
+    target_face_index: int = _Form(default=0, ge=0),
+    enhance: bool = _Form(default=False),
+    enhancer_backend: str = _Form(default="gfpgan"),
+    enhancer_fidelity: float = _Form(default=0.5, ge=0.0, le=1.0),
+    watermark: bool = _Form(default=True),
+    return_base64: bool = _Form(default=False),
+    consent: bool = _Form(default=False),
+) -> SwapRequest:
+    """Build and validate a ``SwapRequest`` from Form fields."""
+    return SwapRequest(
+        blend_mode=BlendModeSchema(blend_mode),
+        blend_alpha=blend_alpha,
+        mask_feather=mask_feather,
+        swap_all_faces=swap_all_faces,
+        max_faces=max_faces,
+        source_face_index=source_face_index,
+        target_face_index=target_face_index,
+        enhance=enhance,
+        enhancer_backend=EnhancerBackendSchema(enhancer_backend),
+        enhancer_fidelity=enhancer_fidelity,
+        watermark=watermark,
+        consent=consent,
+    )
