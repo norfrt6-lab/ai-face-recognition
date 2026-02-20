@@ -1,8 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap - Logger
-# Loguru-based structured logging setup
-# ============================================================
-
 from __future__ import annotations
 
 import sys

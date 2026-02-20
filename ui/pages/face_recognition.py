@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# ui/pages/face_recognition.py
-# ============================================================
 # Streamlit page for face recognition and identity registration.
 #
 # Features:
@@ -10,7 +6,6 @@
 #   - Register new identities from uploaded photos
 #   - Browse and manage the face database
 #   - Visualize bounding boxes and landmarks on detected faces
-# ============================================================
 
 from __future__ import annotations
 
@@ -26,13 +21,6 @@ import requests
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 
-# ============================================================
-# Page config (called from app.py — do not call set_page_config here)
-# ============================================================
-
-# ============================================================
-# Constants
-# ============================================================
 
 import os as _os
 _DEFAULT_API_URL = _os.getenv("UI_API_BASE_URL", "http://localhost:8000")
@@ -47,10 +35,6 @@ _CONFIDENCE_COLORS = {
     "unknown": "#AAAAAA",  # grey   not recognized
 }
 
-
-# ============================================================
-# Helpers — API calls
-# ============================================================
 
 def _api_url() -> str:
     return st.session_state.get("api_base_url", _DEFAULT_API_URL)
@@ -178,10 +162,6 @@ def _rename_identity(identity_id: str, new_name: str) -> bool:
         return False
 
 
-# ============================================================
-# Helpers — Image annotation
-# ============================================================
-
 def _pil_to_bytes(img: Image.Image, fmt: str = "JPEG") -> bytes:
     buf = io.BytesIO()
     img.save(buf, format=fmt)
@@ -296,10 +276,6 @@ def _annotate_image(
     return annotated
 
 
-# ============================================================
-# Section renderers
-# ============================================================
-
 def _render_recognize_section() -> None:
     """Render the 'Recognize Faces' tab content."""
 
@@ -309,7 +285,6 @@ def _render_recognize_section() -> None:
         "match them against the registered identity database, and return results."
     )
 
-    # ── Controls ─────────────────────────────────────────────────────
     col_upload, col_settings = st.columns([2, 1])
 
     with col_upload:
@@ -348,13 +323,11 @@ def _render_recognize_section() -> None:
         st.warning("⚠️ Please check the consent box to proceed with face recognition.")
         return
 
-    # ── Show original image ──────────────────────────────────────────
     image_bytes = uploaded.read()
     pil_image   = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
     st.divider()
 
-    # ── Run recognition ──────────────────────────────────────────────
     run_col, _ = st.columns([1, 3])
     with run_col:
         run_btn = st.button(
@@ -400,7 +373,6 @@ def _render_recognize_section() -> None:
     img_w     = result.get("image_width", pil_image.width)
     img_h     = result.get("image_height", pil_image.height)
 
-    # ── Metrics row ──────────────────────────────────────────────────
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Faces detected",    n_det)
     m2.metric("Faces recognized",  n_rec)
@@ -409,7 +381,6 @@ def _render_recognize_section() -> None:
 
     st.divider()
 
-    # ── Image + results side by side ─────────────────────────────────
     img_col, res_col = st.columns([3, 2])
 
     with img_col:
@@ -487,7 +458,6 @@ def _render_register_section() -> None:
         "and store it in the face database."
     )
 
-    # ── Form ─────────────────────────────────────────────────────────
     with st.form("register_form", clear_on_submit=False):
         col_img, col_form = st.columns([1, 1])
 
@@ -538,7 +508,6 @@ def _render_register_section() -> None:
             use_container_width=True,
         )
 
-    # ── Validation & submission ──────────────────────────────────────
     if not submitted:
         return
 
@@ -590,7 +559,6 @@ def _render_database_section() -> None:
     st.subheader("Registered face identities")
     st.caption("Browse, search, rename, or delete identities stored in the face database.")
 
-    # ── Search + refresh bar ─────────────────────────────────────────
     search_col, btn_col = st.columns([3, 1])
     with search_col:
         name_filter = st.text_input(
@@ -638,7 +606,6 @@ def _render_database_section() -> None:
 
     st.divider()
 
-    # ── Identity table ───────────────────────────────────────────────
     for identity in items:
         uid       = identity.get("identity_id", "")
         name      = identity.get("name", "Unknown")
@@ -665,7 +632,6 @@ def _render_database_section() -> None:
                 st.markdown(f"**Embeddings stored:** {num_emb}")
 
             with col_actions:
-                # ── Rename ──────────────────────────────────────────
                 st.markdown("**Rename**")
                 new_name_key = f"rename_{uid}"
                 new_name = st.text_input(
@@ -691,7 +657,6 @@ def _render_database_section() -> None:
 
                 st.markdown("---")
 
-                # ── Delete ──────────────────────────────────────────
                 confirm_key = f"del_confirm_{uid}"
                 confirmed   = st.checkbox(
                     "Confirm delete",
@@ -715,10 +680,6 @@ def _render_database_section() -> None:
                     else:
                         st.warning("Check 'Confirm delete' first.")
 
-
-# ============================================================
-# Main entry point
-# ============================================================
 
 def render(api_base_url: str = _DEFAULT_API_URL) -> None:
     """
@@ -752,10 +713,6 @@ def render(api_base_url: str = _DEFAULT_API_URL) -> None:
     with tab_database:
         _render_database_section()
 
-
-# ============================================================
-# Standalone run (for development)
-# ============================================================
 
 if __name__ == "__main__":
     st.set_page_config(

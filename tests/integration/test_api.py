@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# tests/integration/test_api.py
-# ============================================================
 # Integration tests for the FastAPI REST backend.
 #
 # Uses FastAPI's built-in TestClient (backed by httpx) to send
@@ -20,7 +16,6 @@
 # None of these tests load real AI models.  Every pipeline
 # component is replaced by a minimal mock attached to app.state
 # before each test.
-# ============================================================
 
 from __future__ import annotations
 
@@ -37,9 +32,6 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-# ============================================================
-# Test helpers / factories
-# ============================================================
 
 def _make_bgr_image(h: int = 120, w: int = 120) -> np.ndarray:
     """Return a solid-colour BGR test image."""
@@ -145,10 +137,6 @@ def _make_face_match_mock(is_known: bool = True):
     return m
 
 
-# ============================================================
-# App fixture
-# ============================================================
-
 @pytest.fixture(scope="module")
 def app() -> FastAPI:
     """
@@ -244,10 +232,6 @@ def sample_png_bytes() -> bytes:
     return _encode_png(_make_bgr_image(200, 200))
 
 
-# ============================================================
-# 1. Health endpoint
-# ============================================================
-
 @pytest.mark.api
 class TestHealthEndpoint:
 
@@ -318,10 +302,6 @@ class TestHealthEndpoint:
         resp = client.get("/api/v1/health", headers={"X-Request-ID": rid})
         assert resp.headers.get("x-request-id") == rid
 
-
-# ============================================================
-# 2. Recognize endpoint
-# ============================================================
 
 @pytest.mark.api
 class TestRecognizeEndpoint:
@@ -457,10 +437,6 @@ class TestRecognizeEndpoint:
         assert len(data["faces"]) == 3
 
 
-# ============================================================
-# 3. Register endpoint
-# ============================================================
-
 @pytest.mark.api
 class TestRegisterEndpoint:
 
@@ -545,10 +521,6 @@ class TestRegisterEndpoint:
         assert "faces_detected" in data
         assert data["faces_detected"] >= 1
 
-
-# ============================================================
-# 4. Identities CRUD
-# ============================================================
 
 @pytest.mark.api
 class TestIdentitiesEndpoints:
@@ -669,10 +641,6 @@ class TestIdentitiesEndpoints:
         assert resp.status_code in (400, 422)
 
 
-# ============================================================
-# 5. Swap endpoint
-# ============================================================
-
 @pytest.mark.api
 class TestSwapEndpoint:
 
@@ -697,7 +665,6 @@ class TestSwapEndpoint:
             data.update(extra_fields)
         return client.post("/api/v1/swap", files=files, data=data)
 
-    # ── Happy path — raw PNG response ───────────────────────────────
 
     def test_swap_200_returns_png(self, client, sample_image_bytes):
         resp = self._post_swap(client, sample_image_bytes, sample_image_bytes)
@@ -722,7 +689,6 @@ class TestSwapEndpoint:
         resp = self._post_swap(client, sample_image_bytes, sample_image_bytes)
         assert "x-processing-ms" in resp.headers
 
-    # ── Happy path — base64 JSON response ───────────────────────────
 
     def test_swap_base64_json_200(self, client, sample_image_bytes):
         resp = self._post_swap(
@@ -791,7 +757,6 @@ class TestSwapEndpoint:
         assert "total_inference_ms" in data
         assert data["total_inference_ms"] >= 0
 
-    # ── Error cases ──────────────────────────────────────────────────
 
     def test_swap_no_consent_returns_4xx(self, client, sample_image_bytes):
         resp = self._post_swap(
@@ -850,7 +815,6 @@ class TestSwapEndpoint:
         assert resp.status_code == 503
         app.state.detector = original
 
-    # ── Additional PNG response headers ──────────────────────────────
 
     def test_swap_x_enhanced_header(self, client, sample_image_bytes):
         resp = self._post_swap(client, sample_image_bytes, sample_image_bytes)
@@ -864,7 +828,6 @@ class TestSwapEndpoint:
         resp = self._post_swap(client, sample_image_bytes, sample_image_bytes)
         assert "x-request-id" in resp.headers
 
-    # ── swap_all_faces mode ───────────────────────────────────────────
 
     def test_swap_all_faces_mode_200(self, client, app, sample_image_bytes):
         resp = self._post_swap(
@@ -880,10 +843,6 @@ class TestSwapEndpoint:
         )
         assert "image/png" in resp.headers["content-type"]
 
-
-# ============================================================
-# 6. Middleware
-# ============================================================
 
 @pytest.mark.api
 class TestMiddleware:
@@ -952,10 +911,6 @@ class TestMiddleware:
         # Preflight should be accepted
         assert resp.status_code in (200, 204)
 
-
-# ============================================================
-# 7. Error handling
-# ============================================================
 
 @pytest.mark.api
 class TestErrorHandling:

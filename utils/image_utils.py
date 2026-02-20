@@ -1,16 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap - Image Utilities
-# ============================================================
-# Centralized image processing helpers used across the pipeline:
-#   - Loading / saving images
-#   - Color space conversions (BGR ↔ RGB ↔ PIL)
-#   - Resizing, cropping, padding
-#   - Face region extraction and paste-back
-#   - Mask creation and blending (alpha, Poisson, seamless)
-#   - Watermarking
-#   - Visualization (bounding boxes, landmarks, labels)
-# ============================================================
-
 from __future__ import annotations
 
 import base64
@@ -30,9 +17,6 @@ Frame = np.ndarray          # shape (H, W, 3) or (H, W, 4)  dtype=uint8
 BBox  = Tuple[int, int, int, int]   # (x1, y1, x2, y2)
 Point = Tuple[int, int]             # (x, y)
 
-# ============================================================
-# 1. LOADING & SAVING
-# ============================================================
 
 def load_image(
     source: Union[str, Path, bytes, np.ndarray],
@@ -160,10 +144,6 @@ def base64_to_image(data_url_or_b64: str) -> Frame:
     return img
 
 
-# ============================================================
-# 2. COLOR SPACE CONVERSIONS
-# ============================================================
-
 def bgr_to_rgb(image: Frame) -> Frame:
     """Convert BGR ndarray to RGB."""
     return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -201,10 +181,6 @@ def normalise_channels(image: np.ndarray) -> Frame:
             return image
     raise ValueError(f"Unsupported image shape: {image.shape}")
 
-
-# ============================================================
-# 3. RESIZING & GEOMETRY
-# ============================================================
 
 def resize_image(
     image: Frame,
@@ -321,10 +297,6 @@ def pad_to_square(
     return image
 
 
-# ============================================================
-# 4. FACE REGION HELPERS
-# ============================================================
-
 def expand_bbox(
     bbox: BBox,
     image_shape: Tuple[int, int],
@@ -357,41 +329,15 @@ def align_face(
     landmarks: np.ndarray,
     output_size: int = 112,
 ) -> Tuple[Frame, np.ndarray]:
+    """Align a face to a canonical crop using 5-point landmarks.
+
+    Delegates to the shared norm_crop implementation in base_swapper.
     """
-    Align a face to a canonical 112×112 (or custom) crop using 5-point landmarks.
-
-    Args:
-        image:       Source BGR image.
-        landmarks:   5-point array with shape (5, 2) — [left_eye, right_eye,
-                     nose, left_mouth, right_mouth] in pixel coordinates.
-        output_size: Square output resolution.
-
-    Returns:
-        (aligned_face, affine_matrix) — the cropped face and the 2×3 transform.
-    """
-    # Canonical reference points for a 112×112 crop (ArcFace standard)
-    ref_pts = np.array(
-        [
-            [38.29459953, 51.69630051],
-            [73.53179932, 51.50139999],
-            [56.02519989, 71.73660278],
-            [41.54930115, 92.36550140],
-            [70.72990036, 92.20410156],
-        ],
-        dtype=np.float32,
-    )
-    scale_factor = output_size / 112.0
-    ref_pts = ref_pts * scale_factor
-
-    src_pts = landmarks.astype(np.float32)
-    M, _ = cv2.estimateAffinePartial2D(
-        src_pts, ref_pts, method=cv2.LMEDS
-    )
-    if M is None:
+    from core.swapper.base_swapper import norm_crop
+    crop, M = norm_crop(image, landmarks, output_size=output_size)
+    if crop is None or M is None:
         raise ValueError("Could not estimate affine transform from landmarks.")
-
-    aligned = cv2.warpAffine(image, M, (output_size, output_size), flags=cv2.INTER_LINEAR)
-    return aligned, M
+    return crop, M
 
 
 def paste_face_back(
@@ -437,30 +383,10 @@ def paste_face_back(
     return result
 
 
-def _create_face_mask(
-    height: int,
-    width: int,
-    feather: int = 20,
-) -> np.ndarray:
-    """
-    Create a soft elliptical mask for face blending.
+def _create_face_mask(height: int, width: int, feather: int = 20) -> np.ndarray:
+    from utils.mask_utils import ellipse_mask
+    return ellipse_mask(height, width, feather=feather)
 
-    Returns:
-        (H, W) uint8 mask — white inside the ellipse, feathered edges.
-    """
-    mask = np.zeros((height, width), dtype=np.uint8)
-    center = (width // 2, height // 2)
-    axes   = (int(width * 0.45), int(height * 0.48))
-    cv2.ellipse(mask, center, axes, 0, 0, 360, 255, -1)
-    if feather > 0:
-        ksize = feather * 2 + 1
-        mask = cv2.GaussianBlur(mask, (ksize, ksize), feather)
-    return mask
-
-
-# ============================================================
-# 5. BLENDING METHODS
-# ============================================================
 
 def alpha_blend(
     src: Frame,
@@ -536,10 +462,6 @@ def masked_blend(
     return blended.astype(np.uint8)
 
 
-# ============================================================
-# 6. WATERMARKING
-# ============================================================
-
 def add_watermark(
     image: Frame,
     text: str = "AI GENERATED",
@@ -588,10 +510,6 @@ def add_watermark(
 
     return cv2.addWeighted(overlay, alpha, image, 1.0 - alpha, 0)
 
-
-# ============================================================
-# 7. VISUALISATION
-# ============================================================
 
 def draw_bboxes(
     image: Frame,
@@ -717,10 +635,6 @@ def side_by_side(
     sep = np.full((h, separator_width, 3), separator_color, dtype=np.uint8)
     return np.concatenate([left_r, sep, right_r], axis=1)
 
-
-# ============================================================
-# 8. IMAGE QUALITY & VALIDATION
-# ============================================================
 
 def is_valid_image(data: bytes) -> bool:
     """Return True if *data* can be decoded as a valid image."""
