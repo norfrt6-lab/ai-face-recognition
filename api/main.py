@@ -94,6 +94,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Warn about unsafe configuration at startup
     _warn_unsafe_defaults(settings)
 
+    # Verify model file integrity (SHA-256) before loading
+    try:
+        from utils.download_models import verify_model_integrity  # noqa: PLC0415
+
+        for model_key in ("yolov8n-face", "inswapper_128", "gfpgan_v1.4", "codeformer"):
+            if not verify_model_integrity(model_key):
+                logger.error(
+                    f"[INTEGRITY] Model '{model_key}' failed SHA-256 verification! "
+                    "The file may be corrupt or tampered with. "
+                    "Re-download with: python utils/download_models.py --force"
+                )
+            else:
+                logger.debug(f"[INTEGRITY] Model '{model_key}' integrity OK")
+    except Exception as exc:
+        logger.warning(f"Could not run model integrity checks: {exc}")
+
     output_dir = (
         Path(settings.storage.output_dir)
         if settings

@@ -44,8 +44,6 @@ class ModelSpec:
 # Official / mirrored download URLs
 _MODEL_REGISTRY: Dict[str, ModelSpec] = {
     # Trained on WIDERFace by akanametov — lightweight & fast
-    # Trained on WIDERFace by akanametov — lightweight & fast
-    # SHA256: compute after first download and pin here for your environment
     "yolov8n-face": ModelSpec(
         name="YOLOv8n-face",
         filename="yolov8n-face.pt",
@@ -516,6 +514,38 @@ def check_all_models() -> Dict[str, bool]:
         logger.info(f"  [{icon}] {spec.name}  ({spec.local_path})")
 
     return status
+
+
+def verify_model_integrity(key: str) -> bool:
+    """
+    Verify a model file's SHA-256 hash at load time.
+
+    Args:
+        key: Registry key (e.g. 'yolov8n-face', 'inswapper_128').
+
+    Returns:
+        True if hash matches or no hash is configured, False if mismatch.
+
+    Raises:
+        KeyError: If *key* is not recognised.
+    """
+    if key not in _MODEL_REGISTRY:
+        raise KeyError(f"Unknown model key: {key!r}")
+
+    spec = _MODEL_REGISTRY[key]
+
+    if not is_model_present(key):
+        logger.warning(f"Model {spec.name} not found on disk — skipping integrity check.")
+        return True
+
+    if spec.sha256 is None:
+        return True
+
+    # Skip ZIP-based models (e.g. buffalo_l) — individual files verified separately
+    if spec.unzip:
+        return True
+
+    return _verify_sha256(spec.local_path, spec.sha256)
 
 
 def get_model_path(key: str) -> Path:
