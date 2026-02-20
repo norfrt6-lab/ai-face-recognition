@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import base64
+import html
 import io
 import time
 from typing import Optional
@@ -416,7 +417,7 @@ def _display_image(
                 align-items: center;
                 justify-content: center;
             ">
-                {placeholder_text}
+                {html.escape(placeholder_text)}
             </div>
             """,
             unsafe_allow_html=True,
