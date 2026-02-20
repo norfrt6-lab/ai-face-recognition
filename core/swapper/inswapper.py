@@ -181,7 +181,7 @@ class InSwapper(BaseSwapper):
                 f"Failed to create ONNX Runtime session for {self.model_path}: {exc}"
             ) from exc
 
-            inputs  = self._session.get_inputs()
+        inputs  = self._session.get_inputs()
         outputs = self._session.get_outputs()
 
         if len(inputs) < 2:
@@ -198,7 +198,7 @@ class InSwapper(BaseSwapper):
         self._latent_name = inputs[1].name
         self._output_name = outputs[0].name
 
-            # The emap is stored as an initialiser / weight in the ONNX graph.
+        # The emap is stored as an initialiser / weight in the ONNX graph.
         # It maps a 512-dim ArcFace embedding → 512-dim latent code that
         # the model can condition on.
         self._emap = self._extract_emap()
