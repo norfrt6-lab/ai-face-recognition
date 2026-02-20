@@ -1,8 +1,3 @@
-# ============================================================
-# core/pipeline/__init__.py
-# Pipeline Orchestration Package — Phase 6
-# ============================================================
-
 try:
     from core.pipeline.face_pipeline import (
         FacePipeline,
