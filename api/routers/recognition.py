@@ -64,12 +64,21 @@ def _get_upload_limits() -> tuple[int, int, int]:
         return 10 * 1024 * 1024, 4096, 10
 
 
-def _decode_upload(upload: UploadFile) -> np.ndarray:
+async def _decode_upload(upload: UploadFile) -> np.ndarray:
     """Decode an uploaded image file into a BGR numpy array."""
     max_bytes, max_dim, min_dim = _get_upload_limits()
 
+    # Pre-check Content-Length before reading full body into memory
+    claimed_size = upload.size
+    if claimed_size is not None and claimed_size > max_bytes:
+        mb = max_bytes / (1024 * 1024)
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large ({claimed_size} bytes). Maximum: {mb:.0f} MB.",
+        )
+
     try:
-        raw = upload.file.read()
+        raw = await upload.read()
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -205,7 +214,7 @@ async def recognize(
     recognizer = state.recognizer
     face_db    = getattr(state, "face_database", None)
 
-    img = _decode_upload(image)
+    img = await _decode_upload(image)
     h, w = img.shape[:2]
 
     loop = asyncio.get_running_loop()
@@ -444,7 +453,7 @@ async def register(
             detail="Face database is not initialised.",
         )
 
-    img = _decode_upload(image)
+    img = await _decode_upload(image)
 
     loop = asyncio.get_running_loop()
     executor = getattr(state, "executor", None)
