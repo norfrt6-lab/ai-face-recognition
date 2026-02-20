@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# core/recognizer/face_database.py
-# ============================================================
 # Persistent face identity store with cosine similarity search.
 #
 # Features:
@@ -13,7 +9,6 @@
 #   - Identity management (add, remove, rename, list, count)
 #   - Bulk import / export helpers
 #   - Statistics and diagnostics
-# ============================================================
 
 from __future__ import annotations
 
@@ -37,10 +32,6 @@ from core.recognizer.base_recognizer import (
     cosine_similarity_matrix,
 )
 
-
-# ============================================================
-# Data Types
-# ============================================================
 
 @dataclass
 class FaceIdentity:
@@ -181,10 +172,6 @@ class SearchResult:
             f"time={self.search_time_ms:.1f}ms)"
         )
 
-
-# ============================================================
-# FaceDatabase
-# ============================================================
 
 class FaceDatabase:
     """

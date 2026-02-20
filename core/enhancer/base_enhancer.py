@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# core/enhancer/base_enhancer.py
-# ============================================================
 # Defines the abstract contract that ALL face enhancement engines
 # must implement, plus shared data-types used throughout the pipeline.
 #
@@ -16,7 +12,6 @@
 #   EnhancementResult  — the output of enhancement (frame + metadata)
 #   EnhancerBackend    — enum of supported backends
 #   EnhancementStatus  — success / failure enum
-# ============================================================
 
 from __future__ import annotations
 
@@ -32,10 +27,6 @@ import numpy as np
 
 from core.detector.base_detector import FaceBox
 
-
-# ============================================================
-# Enumerations
-# ============================================================
 
 class EnhancerBackend(Enum):
     """
@@ -68,10 +59,6 @@ class EnhancementStatus(Enum):
     INVALID_INPUT    = "invalid_input"
     DISABLED         = "disabled"
 
-
-# ============================================================
-# Data Types
-# ============================================================
 
 @dataclass
 class EnhancementRequest:
@@ -206,10 +193,6 @@ class EnhancementResult:
         )
 
 
-# ============================================================
-# Shared Utilities
-# ============================================================
-
 def pad_image_for_enhancement(
     image: np.ndarray,
     min_size: int = 128,
@@ -297,10 +280,6 @@ def find_center_face(face_boxes: List[FaceBox], image_w: int, image_h: int) -> O
 
     return min(face_boxes, key=_dist)
 
-
-# ============================================================
-# Abstract Base Enhancer
-# ============================================================
 
 class BaseEnhancer(ABC):
     """

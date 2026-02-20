@@ -1,7 +1,3 @@
-# ============================================================
-# AI Face Recognition & Face Swap
-# core/enhancer/gfpgan_enhancer.py
-# ============================================================
 # GFPGAN v1.4 face restoration enhancer.
 #
 # GFPGAN (Generative Facial Prior GAN) restores degraded faces
@@ -21,7 +17,6 @@
 #   3. Run GFPGAN restorer (detects + enhances faces internally)
 #   4. Crop back to original aspect ratio if padded
 #   5. Return EnhancementResult with output + timing metadata
-# ============================================================
 
 from __future__ import annotations
 
