@@ -99,6 +99,18 @@ output/
 results/
 uploads/
 cache/
+debug_output/
+
+# Large third-party libraries (not managed via pip)
+gfpgan/
+mobile/
+
+# Local debug / scratch files
+_b64.txt
+test123.py
+test_b64.py
+test_write.py
+diagnostic_swap.py
 
 # Docker
 docker/data/
