@@ -31,6 +31,7 @@ from api.routers import health, recognition, swap
 from api.routers.anonymize import router as anonymize_router
 from api.routers.batch import router as batch_router
 from api.routers.similarity import router as similarity_router
+from api.routers.video import router as video_router
 from api.schemas.responses import ErrorDetail, ErrorResponse
 from utils.logger import get_logger, setup_from_settings
 
@@ -312,6 +313,7 @@ def create_app() -> FastAPI:
     app.include_router(similarity_router, prefix=_api_prefix)
     app.include_router(anonymize_router, prefix=_api_prefix)
     app.include_router(batch_router, prefix=_api_prefix)
+    app.include_router(video_router, prefix=_api_prefix)
 
     from api.metrics import METRICS_AVAILABLE  # noqa: PLC0415
 
