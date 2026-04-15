@@ -28,6 +28,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.routers import health, recognition, swap
+from api.routers.similarity import router as similarity_router
 from api.schemas.responses import ErrorDetail, ErrorResponse
 from utils.logger import get_logger, setup_from_settings
 
@@ -306,6 +307,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router, prefix=_api_prefix)
     app.include_router(recognition.router, prefix=_api_prefix)
     app.include_router(swap.router, prefix=_api_prefix)
+    app.include_router(similarity_router, prefix=_api_prefix)
 
     from api.metrics import METRICS_AVAILABLE  # noqa: PLC0415
 
